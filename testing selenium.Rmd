@@ -1,0 +1,288 @@
+---
+title: "Testing Selnium + Docker"
+author: "bmck"
+date: "2025-02-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Testing using RSelenium to connect to Docker and the web
+
+Libraries
+```{r}
+library(RSelenium)
+library(tidyverse)
+library(rvest)
+library(httr)
+
+set_config(
+  user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:135.0) Gecko/20100101 Firefox/135.0; Brad McKenzie / 100535241@alunmos.uc3m.es")
+)
+
+
+```
+
+
+# -------------------------------------------------------
+# DON'T START HERE -> THIS WAS THE TESTING WITH DOCKER, GO DOWN
+# -------------------------------------------------------
+
+To be reviewed later. Have focussed on the RSelenium application for now. 
+
+Connect to the running server:
+
+```{r}
+# remDr <- remoteDriver(
+#   remoteServerAddr = "localhost",
+#   port = 4447L,
+#   browserName = "firefox"
+# )
+
+```
+
+Connect to the server: 
+
+```{r}
+# remDr$open()
+
+```
+Check status of Selenium Server. This version is build in 2016 on Linux
+```{r}
+# remDr$getStatus()
+```
+
+Test connection to browser:
+```{r}
+# remDr$navigate("http://www.google.com/ncr")
+# 
+# remDr$getCurrentUrl()
+
+```
+
+
+
+#------------------------------------------------------ ##
+#               START FROM HERE                         ##
+#                                                       ##
+##      Trying to connect Selenium to Aena              ##
+#                                                       ##
+# ------------------------------------------------------
+
+First driver object.
+
+I have downloaded firefox for this because it's supposed to be easier. If using chrome, you need to specify the exact verison you are using. 
+
+```{r}
+rs_driver_object <- rsDriver(browser = "firefox")
+```
+
+Access the client object
+
+```{r}
+remDr <- rs_driver_object$client
+```
+
+## Start the browser
+
+```{r}
+remDr$open()
+```
+
+## connect to aena page
+
+```{r}
+remDr$navigate("https://www.aena.es/en/flight-info.html")
+```
+
+## Click on the consent button
+... well, reject cookies. 
+```{r}
+remDr$findElement(using = "xpath", "//div[@id = 'modal_footer']//button[@class='ecix-bold ecix-font-1-2em elix-accordion-btn-light elix-deny-all-btn']")$clickElement()
+
+```
+
+## Switch the arrivals and departures button
+
+Need to do this as default is only search in arrivals
+
+#### FOR FUTURE: but ideally we should do dynamic code to detect if it's in the departures or arrivals page 
+
+```{r}
+remDr$findElement(using = "xpath", 
+                  value = "//nav[@class='filtrovuelo in-page bg-primary']//div[@class='iconos']")$clickElement()
+
+```
+
+### click on departures button to search for airport
+
+This just selects the box to input text. 
+
+```{r}
+# remDr$findElement(using = "xpath", 
+#                   value = "//nav[@class='filtrovuelo in-page bg-primary']//div[@id='otherAirport']/input[@id='Departuresin the Aena network:']")$clickElement()
+
+# identify the departures box
+departures_box_select <- remDr$findElement(using = "xpath", 
+                                           value = "//nav[@class='filtrovuelo in-page bg-primary']//input[@id='Departuresin the Aena network:']")
+
+# checking step ->  view the element in the current departures box
+departures_box_select$getElementAttribute("placeholder")
+
+```
+
+Input the text to the Departures
+
+To set airport of interest. 
+Maybe for later, maybe make a table for valid airports and their codes? Create a lookup table to see what the airport code is. 
+
+Suggesting that we enter by airport code because then if gives the best response. 
+
+```{r}
+# Select airport code (MAD = Adolofo Suárez Madrid) to enter the text to departures 
+airport_code <- "MAD"
+
+# send the airport code text to the departures box: 
+#first, clear the box from any exisitng text (sometimes cookies retain names)
+departures_box_select$clearElement()
+#next enter the airport code
+departures_box_select$sendKeysToElement(list(airport_code, key = "enter"))
+```
+
+The autodropdown now appears with aiports based on the search term. 
+
+I've had difficulty trying to select dynamically. 
+  -> this will be an important later step, to try and select the aiport code based on text ID. For now, just use the direct selection
+  -> this works because the autofill dropdown has the airport name and code. 
+  
+```{r}
+
+# testing step ->  highlight the autofill to see it's being used: 
+remDr$findElement(using = "xpath",
+                  value = "//div[@class='input aeropuertoAena autocompletable']//ul[@class='autoCompletable visible']")$highlightElement()
+```
+
+Select the dropdown option (manual option)
+
+```{r}
+#confirming this works with one airport - YES, works with both calls
+autofill_drop <- remDr$findElement(using = "xpath", value = "//span[. = 'MAD']")
+#select it to update airport
+autofill_drop$clickElement()
+```
+
+### TO FIX LATER - DYNAMIC SELECTION FROM DROPDOWN...
+Select the dropdown option (dynamic option NOT WORKING)
+This is the broken code to try and dynamically select the dropdown based on airport codes
+
+```{r}
+# best attempts to select the airport code text dynamically
+airport_autfill_dropdown$highlightElement()
+
+# create a string of the new name dynamically
+autofill_xpath <- paste0('"//span[. = ', airport_code, ']"')
+
+```
+
+Now, we have the text imputed, but want to select the valid dropdown option. 
+I have created this dynamically because sometimes other airports can appear. 
+Using the airport code only will ensure we click the exact airport we want.
+
+```{r}
+
+# now to identify dynamically
+# create string of the xml code for the airport 
+autofill_xpath <- paste0('"//span[. = ', airport_code, ']"')
+
+#this dynamic section just doesnt' work. 
+autofill_drop <- remDr$findElement(using = "xpath", value = autofill_xpath)
+#select it to update airport
+autofill_drop$clickElement()
+
+
+# removed all the other dead code
+```
+
+
+At this stage -> it should be a page that has filtered to your airport selected
+
+## Limit the search to only the next 6 hours: 
+
+Will need to be a function based on whether it's 
+```{r}
+
+select_timebox <- remDr$findElement(using = "xpath", 
+                  value = "//nav[@class='filtrovuelo in-page bg-primary']//section[@id='horario']")
+
+select_timebox$clickElement()
+
+```
+
+
+### Impute start and end time of data collection
+
+Now check we should have the time drop down to start and end
+
+```{r}
+# extract the time from the dropdown
+start_hr <- remDr$findElement(using = "xpath",
+                  value = "//article[@class='custom-horas']//div[@class='desde hour_unit']//div[@class='valor hora']")
+
+start_min <- remDr$findElement(using = "xpath",
+                  value = "//article[@class='custom-horas']//div[@class='desde hour_unit']//div[@class='valor minuto']")
+
+#extract the value as numeric
+start_hr <- as.numeric(start_hr$getElementText())
+start_min <- as.numeric(start_min$getElementText())
+
+
+```
+
+
+Manually create the end time. 
+
+This will need to be a loop if the hour of the day is after 19 (as it will enter the next day) and then we will need to code the date selection variable too. 
+
+As the inputs are characters, calculate the number then force to be character
+```{r}
+end_hr_input <- as.character(start_hr + 6)
+end_min_input <- as.character(start_min + 6)
+```
+
+Input the end times to the drop down for the "to" column
+End unit uses the same xml but has "hasta" instead of "desde" in the a higher level node. 
+
+```{r}
+# select the end time options
+# extract the time from the dropdown
+end_hr <- remDr$findElement(using = "xpath",
+                  value = "//article[@class='custom-horas']//div[@class='hasta hour_unit']//div[@class='valor hora']")
+
+end_min <- remDr$findElement(using = "xpath",
+                  value = "//article[@class='custom-horas']//div[@class='hasta hour_unit']//div[@class='valor minuto']")
+
+```
+
+Try to send the end time: 
+THIS ALSO DOESN'T WORK
+
+```{r}
+end_hr$sendKeysToElement(list(end_hr_input, key = "enter"))
+departures_box_select$sendKeysToElement(list(airport_code, key = "enter"))
+
+
+end_hr$clearElement()
+end_hr$highlightElement()
+end_hr$sendKeysToElement(list(end_hr_input))
+
+```
+
+
+
+NEXT PROPOSED STEP FOR TIME LIMIT:
+- use clickelement to select the dropdown for the hour column,
+- use some str_detect function to detect the option within that next dropdown node which matches the target end time.
+- click element on that 
