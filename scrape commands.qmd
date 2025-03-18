@@ -1,0 +1,516 @@
+---
+title: "scrapie project"
+author: "Mafalda González González"
+format: 
+  html:
+    embed-resources: true
+editor: visual
+---
+
+# Library
+
+```{r}
+
+library(xml2)
+library(httr)
+library(httr2)
+library(tidyverse)
+library(rvest)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(lubridate)
+library(RSelenium)
+```
+
+
+# Airport
+
+```{r}
+madrid <- "https://www.aena.es/en/flight-info.html"
+url <- madrid
+
+library(httr)
+url <- GET("https://www.aena.es/en/flight-info.html", add_headers(`User-Agent` = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36; Mafalda Gonzalez Gonzalez / mafalda.g.gonzalez@gmail.com"))
+
+set_config(
+  user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36; Mafalda Gonzalez Gonzalez / mafalda.g.gonzalez@gmail.com")
+)
+```
+
+# Scrápie
+
+problem: page is loaded dynamically with javascript AFTER loading the sourv
+
+-   page source = initial html send by the server
+-   inspect element = fully loaded website =\> including dynamically added content with java
+
+ALSO: flight delays and info is loaded with API requests! not static content!
+
+this wont work:
+
+```{r}
+#theoretically code if website was static
+url %>% 
+  read_html() %>% 
+  xml_find_all("//div[@class='hora']") %>% 
+  xml_text()
+
+# can only go one node lower than the root
+url %>% 
+  read_html() %>% 
+  html_nodes(xpath = "//body/div[@id='infovuelos']") %>% 
+  html_structure()
+
+# finds only horario, as is in the html source code, but not hora. horario is actually not anymore in the final output script 
+url %>% 
+  read_html() %>% 
+  html_nodes(xpath = "//div[contains(@class, 'hora')]") 
+```
+
+## with downloaded page
+
+```{r}
+url <- "Flight information _ Infovuelos _ Aena.html"
+```
+
+# Select flights
+
+we are looking to select each individual fila info so that we can download and safe the data
+
+different options
+
+## with CSS
+
+```{r}
+
+url %>% 
+  read_html() %>% 
+  html_nodes(xpath = "//div[@class='fila']") %>% 
+  .[[1]] %>% 
+  html_nodes(".linea.micro") %>% # CSS selector instead of xpath => xpath 
+  html_children()
+```
+
+=\> works
+
+-   we find the filas (xml_find_all or html_nodes would be the same here)
+-   we find the first element
+-   we use **CSS** instead of xpath with hmtl_nodes() so that we select within out first element selected! =\> we then find the root of all of the information of that fila - hmtl_children to get all the individual information into different outputs
+
+## with XPath
+
+next try:
+
+```{r}
+one_flight <- url %>% 
+  read_html() %>% 
+  html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']") %>% 
+  .[[1]] %>% 
+  html_children()
+
+one_flight
+```
+
+same as before but we select the linea micro first, and then out of all linea micros we pick the first one. same output different strategy. idk whats better or worse. ask jorge?
+
+# Information into data bases
+
+```{r}
+
+clean_text <- one_flight %>% 
+  html_text(trim = TRUE)
+
+clean_text
+
+data <- tibble(
+  departure_time = clean_text[[1]],
+  flight_number = clean_text[[2]],
+  company = clean_text[[3]],
+  destination = clean_text[[4]],
+  terminal = clean_text[[5]],
+  check_in_desk = clean_text[[6]],
+  boarding_gate = clean_text[[7]],
+  getting_there = clean_text[[8]],
+  flight_status = clean_text[[9]]
+)
+
+data
+```
+
+problem: departure time:
+
+if departure time has more than 5 characters: split it into original departure time and late_departure_time
+
+-   either with CSS (XPATH DOES NOT WORK: if we used xml_find_all or html_nodes(xpath = "//span\[not(contains( \@class, 'tachado'))\]") =\> we would go back into the source code, and we just want to saty inside one_flight\[\[1\]\])
+
+-   or with text manipulation/regex
+
+```{r}
+
+one_flight
+
+# data$departure_time_current <- 
+
+# CSS
+one_flight[[1]] %>% 
+  html_nodes("span:not(.tachado)") %>% 
+  html_text(trim = TRUE)
+
+# regex 
+clean_text <- one_flight %>% 
+  html_text(trim = TRUE)
+
+clean_text %>% 
+  .[[1]] %>% 
+  str_sub(., 1, 5)
+
+
+
+# data$departure_time_original <- 
+
+# CSS
+one_flight[[1]] %>%
+  html_nodes("span.tachado") %>%
+  html_text(trim = TRUE) %>% 
+  str_c(collapse = " ")
+
+# function: ifelse(length(.) > 0, ., departure_time_current)
+
+# regex
+clean_text %>% 
+  .[[1]] %>% 
+  str_sub(., -5, -1)
+
+
+```
+
+=\> better with str_sub(., 1, 5) caus eit will automatically put the same time if there is no "tachado"
+
+
+
+## f: flight information
+
+```{r}
+categorise_flight <- function(flight) {
+  
+  clean_text <- flight %>% 
+    html_text(trim = TRUE)
+  
+  departure_time_current <- clean_text %>% 
+    .[[1]] %>% 
+    str_sub(., 1, 5)
+  
+  departure_time_original <- clean_text %>% 
+    .[[1]] %>% 
+    str_sub(., -5, -1)
+
+
+  flight_data <- tibble(
+    departure_time_current = departure_time_current,
+    departure_time_original = departure_time_original,
+    flight_number = clean_text[[2]],
+    company = clean_text[[3]],
+    destination = clean_text[[4]],
+    terminal = clean_text[[5]],
+    check_in_desk = clean_text[[6]],
+    boarding_gate = clean_text[[7]],
+    getting_there = clean_text[[8]],
+    flight_status = clean_text[[9]]
+  )
+  
+  return(flight_data)
+}
+
+categorise_flight(one_flight)
+```
+
+
+# Read all flights
+
+```{r}
+library(purrr)
+
+# all flight nodes (each div.linea.micro is a flight)
+all_flight_nodes <- url %>% 
+  read_html() %>% 
+  html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']")
+
+
+```
+
+map() to loop through all flights in the xml_nodeset
+
+```{r}
+# applying html_children() to each flight node and then categorise_flight()
+flights_data <- map_dfr(all_flight_nodes, function(flight) {
+  flight <- html_children(flight)  # extract individual flight details
+  categorise_flight(flight)        
+})
+
+flights_data
+
+```
+
+## f: ITERATE through flights
+
+```{r}
+scrape_flights <- function(url) {
+
+  all_flight_nodes <- url %>% 
+    read_html() %>% 
+    html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']")
+  
+  flights_data <- map_dfr(all_flight_nodes, function(flight) {
+    children <- html_children(flight)  # Extract individual flight details
+    categorise_flight(children)        # Process the extracted children
+  })
+  
+  return(flights_data)
+}
+
+scrape_flights(url)
+
+flights_data <- scrape_flights(url)
+
+```
+
+# Delay classes with lubridate
+
+-   LUBRIDATE: convert times into proper hms (hour-minute-second) format
+-   cases where flights cross over into the next day e.g., 23:40 to 00:10 should be recognized as a delay
+-   =\> calculate time difference correctly
+
+```{r}
+# test 
+x <- tibble(
+  departure_time_current = c("00:10", "14:30", "12:00", "23:59", "06:00"),
+  departure_time_original = c("23:40", "14:30", "12:30", "23:00", "06:31")
+)
+
+library(lubridate)
+
+x %>%
+  mutate(
+    # lubridate conversion into datetime: today + hour-minute
+    departure_time_current = today() + hm(departure_time_current),  
+    departure_time_original = today() + hm(departure_time_original),
+    
+    # midnight flights crossover fix  
+    departure_time_current = case_when(
+      
+      # if current time is smaller than original & diff between them is more than 30minutes (we assume the max time a flight can be early is 30minutes) => we assume current is the next day
+      
+      # => if its smaller => if its 00:10 and the original was 23:10 then we want to do 24:10>23:10, for that we add the 24hours
+      
+      departure_time_current < departure_time_original & (departure_time_original - departure_time_current) > minutes(30) 
+      ~ departure_time_current + days(1),
+      TRUE ~ departure_time_current
+    ),
+    
+    # delay in minutes
+    delay_minutes = as.numeric(difftime(departure_time_current, departure_time_original, units = "mins")),
+    
+    # delay status
+    delay_status = case_when(
+      delay_minutes >= -5 & delay_minutes <= 10 ~ "On Time", # taking absolute value so that if its smaller than ten minutes early or late, its still on time theoretically 
+      delay_minutes > 10 ~ "Late", 
+      delay_minutes < -5 ~ "Early"
+    )
+  )
+
+
+```
+
+## f: delay time and status
+
+```{r}
+categorise_delay <- function(flight) {
+  
+  flight %>%
+    mutate(
+      
+      # conversion to datetime
+      departure_time_current = today() + hm(departure_time_current),  
+      departure_time_original = today() + hm(departure_time_original),
+      
+      # midnight crossover fix: adjust if current time is >30 min earlier than original
+      departure_time_current = case_when(
+        departure_time_current < departure_time_original & 
+          (departure_time_original - departure_time_current) > minutes(30) 
+        ~ departure_time_current + days(1),
+        TRUE ~ departure_time_current
+      ),
+      
+      # delay in minutes
+      delay_minutes = as.numeric(difftime(departure_time_current, departure_time_original, units = "mins")),
+      
+      #  delay status
+      delay_status = case_when(
+        delay_minutes >= -5 & delay_minutes <= 10 ~ "On Time",
+        delay_minutes > 10 ~ "Late", 
+        delay_minutes < -5 ~ "Early"
+      )
+    )
+}
+
+categorise_delay(flights_data)
+
+flights_data <- categorise_delay(flights_data)
+```
+
+
+# unique flights 
+
+```{r, eval=F}
+flights_data
+```
+
+
+```{r}
+flights_data %>%
+    group_by(departure_time_current, destination, boarding_gate) %>%
+    summarise(
+      departure_time_original = first(departure_time_original),
+      flight_status = first(flight_status),
+      delay_minutes = first(delay_minutes),
+      delay_status = first(delay_status),
+      destination = first(destination),
+      flight_number = str_c(unique(flight_number), collapse = ", "),
+      company = str_c(unique(company), collapse = ", "),
+      check_in_desk = first(check_in_desk),
+      terminal = first(terminal),
+      boarding_gate = first(boarding_gate),
+      getting_there = first(getting_there),
+      .groups = "drop"
+    ) %>%
+  # order of the columns displayed
+  select(departure_time_current, departure_time_original,
+         flight_status, delay_minutes, delay_status,
+         destination, flight_number, company, check_in_desk,
+         terminal, boarding_gate, getting_there)
+```
+
+## f: unique flights
+
+```{r}
+group_flights <- function(flights_data) {
+  flights_data %>%
+    group_by(departure_time_current, destination, boarding_gate) %>%
+    summarise(
+      departure_time_original = first(departure_time_original),
+      flight_status = first(flight_status),
+      delay_minutes = first(delay_minutes),
+      delay_status = first(delay_status),
+      destination = first(destination),
+      flight_number = str_c(unique(flight_number), collapse = ", "),
+      company = str_c(unique(company), collapse = ", "),
+      check_in_desk = first(check_in_desk),
+      terminal = first(terminal),
+      boarding_gate = first(boarding_gate),
+      getting_there = first(getting_there),
+      .groups = "drop"
+    ) %>%
+  select(departure_time_current, departure_time_original,
+         flight_status, delay_minutes, delay_status,
+         destination, flight_number, company, check_in_desk,
+         terminal, boarding_gate, getting_there)
+}
+
+group_flights(flights_data)
+  
+```
+
+
+todo: plane statistics website =\> data on average, medium delay
+
+# FUNCTION 
+```{r}
+
+scrape_flights <- function(url) {
+  
+  # all flight nodes
+  all_flight_nodes <- url %>% 
+    read_html() %>% 
+    html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']")
+  
+  # no flights = empty tibble
+  if (length(all_flight_nodes) == 0) {
+    return(tibble())
+  }
+
+  # child elements from each flight
+  flights_data <- map_dfr(all_flight_nodes, function(flight) {
+    
+    flight <- html_children(flight)
+    
+  # categorise_flight function
+    categorise_flight(flight)        
+  })
+  
+  # categorise_delay function 
+  flights_data <- categorise_delay(flights_data)
+  
+  # gropu_flights function 
+  flights_data <- group_flights(flights_data)
+
+  return(flights_data)
+}
+
+scrape_flights(url)
+
+```
+
+
+# Selenium test
+
+```{r}
+library(RSelenium)
+
+
+remDr <- remoteDriver(
+  remoteServerAddr = "localhost",
+  port = 4445L,
+  browserName = "firefox"
+)
+
+remDr$open()
+
+remDr$navigate("https://www.google.com")
+
+
+```
+
+🎉 Amazing! 🎉 I did it! 🚀
+
+For Prof:
+
+1️⃣ Docker command (image & ports) in PowerShell to start Selenium container
+
+Selenium container with visible Firefox:
+
+-   Optional =\> Install a VNC Viewer to see the browser:
+    -   Connect to: localhost:5900
+    -   No password required
+
+```         
+docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
+```
+
+RSelenium connection code:
+
+```{r}
+remDr <- remoteDriver(
+  remoteServerAddr = "localhost",
+  port = 4445L,
+  browserName = "firefox"
+)
+
+remDr$open()
+```
+
+# Selenium
+
+# Output??? 
+
+shiny app with location of the airport and like symbols?? and maybe some charts? 
