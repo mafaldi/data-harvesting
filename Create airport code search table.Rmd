@@ -1,0 +1,228 @@
+---
+title: "Extract airport code list"
+author: "bmck"
+date: "2025-03-17"
+output: html_document
+---
+
+This will extract all the airport and heliport lists that are searchable in AENA. It will extract all the information from the autofill dropdown. Then tidy the data so we have a clean searchable airport list with codes. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here we can actually just read from the html file rather than using selenium with the rendered document. 
+<!-- Connect to firefox client and connect to AENA webpage -->
+<!-- ```{r} -->
+<!-- rs_driver_object <- rsDriver(browser = "firefox") -->
+
+<!-- remDr <- rs_driver_object$client -->
+<!-- ``` -->
+
+<!-- Start the browser and connect to airport list webpage -->
+
+<!-- ```{r} -->
+<!-- remDr$open() -->
+
+<!-- remDr$navigate("https://www.aena.es/en/passengers/our-airports.html") -->
+<!-- ``` -->
+
+Extract all of the airport names and codes:
+All the names are in a table in an <a> node within a <li> node, within another group of <li> for each column of the tables: 
+
+```{r}
+library(xml2)
+library(httr)
+library(tidyverse)
+library(janitor)
+```
+
+
+```{r}
+url <- "https://www.aena.es/en/passengers/our-airports.html"
+#read in the html
+webpage_airport_names <- read_html(url)
+
+```
+
+Now we write the html to check the structure. This page relies on javascript, but as we just want basic data, we can still extract from the base html file. It's just a list of dot point information. 
+
+```{r}
+
+write_html(webpage_airport_names, "airport_names.html")
+extract_airport_table <- webpage_airport_names %>%
+  xml_find_all("//main//ul[@class='links']")
+
+airport_names <- extract_aiport_table %>%
+  xml_find_all(".//li/a") %>% # Find <a> tags within <li>
+  xml_text() # Extract the text
+
+
+extract_aiport_table <- webpage_airport_names |> 
+  xml_find_all("//main//ul[@class='create-columns visible']")
+
+extract_names <- function(xml_node) {
+  a_nodes <- xml_find_all(xml_node, "//li/a") # Find <a> nodes within <li>
+  a_texts <- xml_text(a_nodes) # Extract text from <a> nodes
+  return(a_texts)
+}
+
+```
+
+```{r}
+url <- "https://www.aena.es/en/passengers/our-airports.html"
+webpage_airport_names <- read_html(url)
+
+# Find the <nav> element containing the airport list
+airport_nav <- webpage_airport_names %>%
+  xml_find_first("//nav[@class='menuAeropuertosHeader deeper header-text n1']")
+
+# Extract the airport names from the <a> tags within the <li> elements
+airport_names <- airport_nav %>%
+  xml_find_all(".//li/a") %>%
+  xml_text()
+
+airport_names
+```
+Now we tidy the names into a tibble of name and airport code:
+The airport codes are always given as the last 5 digits in brackets. However, we can write the code dynamically by detecting the parenthesis. This will be defensive for if future airport codes are placed before the name or airport codes become longer/shorter. 
+
+```{r}
+# create tibble extracting the name and code element
+airport_name_aena <- tibble(
+  names = str_trim(str_replace_all(airport_names, pattern = "\\(.+\\)", replacement = "")),
+  codes = str_extract_all(string = airport_names, pattern = "\\(.+\\)"),
+)
+
+# remove parenthesis from codes and any trailing white space
+airport_name_aena$codes = str_trim(str_remove_all(airport_name_aena$codes, "[\\(\\)]"))
+
+```
+
+
+## Now read in wiki list of airports to join on city names
+
+```{r}
+# read wiki link
+url <- "https://en.wikipedia.org/wiki/List_of_airports_in_Spain"
+
+wiki_airports <- read_html(url)
+browseURL(url)
+write_html(wiki_airports, "wiki_airport_list.html")
+
+```
+
+Now extract the table we are interested in.
+
+```{r}
+all_wiki_table <- wiki_airports |> 
+  html_table()
+all_wiki_table
+```
+
+We see the airports are split out into multiple tabled for
+* mainland 
+* Balearic Islands
+* Canaries
+* Ceuta and Melilla
+* Heliports
+
+```{r}
+# mainland has extra columns and a blank first row
+mainland <- all_wiki_table[[1]] |> clean_names() |> filter(community != "") |> 
+  select(location = location_served, icao, iata, airport_name)
+
+# balearics and others need col names elevated and cleaned
+balearic <- all_wiki_table[[2]] |> row_to_names(1) |> clean_names()
+
+# canaries has repeated cols, we remove those with no airport code
+canaries <- all_wiki_table[[3]] |> row_to_names(1) |> clean_names() |> filter(iata != "")
+
+# heliports are missing the aito code, may not join at all 
+heliports <- all_wiki_table[[4]] |> row_to_names(1) |> clean_names()
+
+ceut_mel <- all_wiki_table[[5]] |> row_to_names(1) |> clean_names()
+
+str(mainland)
+str(balearic)
+str(canaries)
+str(heliports)
+str(ceut_mel)
+
+```
+
+We standardize the col names in heliports ceut_mel and manually input the ceut code since it is known and only has 2 rows
+```{r}
+names(heliports) <- names(mainland)
+heliports$iata <- c("GMZ", "")
+ceut_mel$iata <- c("JCU", "MLN")
+```
+
+Then we join altogether for all wiki information.
+
+```{r}
+airport_names_wiki <- bind_rows(
+  mainland,
+  balearic,
+  canaries,
+  heliports,
+  ceut_mel
+)
+```
+
+We remove all the footnotes from the airport codes. 
+```{r}
+airport_names_wiki <- airport_names_wiki |> 
+  mutate(across(everything(), ~ str_replace_all(., "\\[.+\\]", "")))
+
+# impute final missing known values not on wiki:
+airport_names_wiki <- airport_names_wiki |> 
+  mutate(
+    iata = case_when(icao == "LEAG" ~ "AEI", #Algeciras 
+                     icao == "LECU" ~ "MCV", # Madrid Cuatro-Vientos
+                     icao == "LELL" ~ "QSA", #Sabadell
+                     icao == "LESB" ~ "SBO", #Son Bonet
+                     TRUE ~ iata
+                     )
+  )
+
+str(airport_names_wiki)
+```
+
+And join onto our AENA airport list of available codes.
+
+```{r}
+full_airport_names <- airport_name_aena |> 
+  left_join(airport_names_wiki, by = c("codes" = "iata"))
+
+## treat multiple rows, these are mostly to do with air bases and military aiports sharing the same airport code location. Although their flights are not searchable so we remove them. 
+
+full_airport_names <- full_airport_names |> 
+  # salamanca is the exception so treat this first
+  mutate(airport_name = case_when(
+    airport_name == "Salamanca Airport (Matacan Air Base) " ~ "Salamanca Airport", 
+    airport_name == "Albacete Airport (Los Llanos Air Base) " ~ "Albacete Airport",
+    TRUE ~ airport_name)) |> 
+  # now remove the airbases/military and manually remove San Seb heliport
+  filter(!str_detect(airport_name, "Air Base|Military Airport"),
+         airport_name != "San Sebastián De La Gomera Heliport")
+
+```
+
+Now rename some columns and order alphabetially by city:
+
+Some airports have multiple results from the join e.g. 
+```{r}
+full_airport_names <- full_airport_names |> 
+  select(City = location,
+         IATA_code = codes,
+         Airport_name = airport_name) |> 
+  arrange(City)
+```
+
+We now have a full searchable table of airport codes that exactly matches the AENA website:
+
+```{r}
+full_airport_names
+```
+
