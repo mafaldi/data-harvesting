@@ -415,7 +415,6 @@ group_flights(flights_data)
   
 ```
 
-todo: plane statistics website =\> data on average, medium delay
 
 # FUNCTION
 

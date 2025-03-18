@@ -438,8 +438,323 @@ aena_page_source <- remDr$getPageSource()[[1]]
 
 # 2. Parse the HTML using rvest
 aena_flight_information <- read_html(aena_page_source)
-
 ```
 
 We now have our html script parsed into the R local program. 
+
+# Nodes scraping
+
+## Loading functions
+
+### Flight information function 
+
+```{r function flight info}
+categorise_flight <- function(flight) {
+  
+  clean_text <- flight %>% 
+    html_text(trim = TRUE)
+  
+  departure_time_current <- clean_text %>% 
+    .[[1]] %>% 
+    str_sub(., 1, 5)
+  
+  departure_time_original <- clean_text %>% 
+    .[[1]] %>% 
+    str_sub(., -5, -1)
+
+
+  flight_data <- tibble(
+    departure_time_current = departure_time_current,
+    departure_time_original = departure_time_original,
+    flight_number = clean_text[[2]],
+    company = clean_text[[3]],
+    destination = clean_text[[4]],
+    terminal = clean_text[[5]],
+    check_in_desk = clean_text[[6]],
+    boarding_gate = clean_text[[7]],
+    getting_there = clean_text[[8]],
+    flight_status = clean_text[[9]]
+  )
+  
+  return(flight_data)
+}
+
+```
+
+### Iteration through different flights (same Airport) function 
+
+```{r function scrape_flights}
+scrape_flights <- function(url) {
+
+  all_flight_nodes <- url %>% 
+    html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']")
+  
+  flights_data <- map_dfr(all_flight_nodes, function(flight) {
+    
+    children <- html_children(flight)  
+    categorise_flight(children)        
+  })
+  
+  return(flights_data)
+}
+
+```
+
+### Delay time and status function 
+
+```{r function categorise_delay}
+
+categorise_delay <- function(flights_data) {
+  
+  flights_data %>%
+    mutate(
+      
+      # conversion to datetime
+      departure_time_current = today() + hm(departure_time_current),  
+      departure_time_original = today() + hm(departure_time_original),
+      
+      # midnight crossover fix: adjust if current time is >30 min earlier than original
+      departure_time_current = case_when(
+        departure_time_current < departure_time_original & 
+          (departure_time_original - departure_time_current) > minutes(30) 
+        ~ departure_time_current + days(1),
+        TRUE ~ departure_time_current
+      ),
+      
+      # delay in minutes
+      delay_minutes = as.numeric(difftime(departure_time_current, departure_time_original, units = "mins")),
+      
+      #  delay status
+      delay_status = case_when(
+        delay_minutes >= -5 & delay_minutes <= 10 ~ "On Time",
+        delay_minutes > 10 ~ "Late", 
+        delay_minutes < -5 ~ "Early"
+      )
+    )
+}
+
+```
+
+### Unique flights function
+
+```{r function group flights}
+group_flights <- function(flights_data) {
+  flights_data %>%
+    group_by(departure_time_current, destination, boarding_gate) %>%
+    summarise(
+      departure_time_original = first(departure_time_original),
+      flight_status = first(flight_status),
+      delay_minutes = first(delay_minutes),
+      delay_status = first(delay_status),
+      destination = first(destination),
+      flight_number = str_c(unique(flight_number), collapse = ", "),
+      company = str_c(unique(company), collapse = ", "),
+      check_in_desk = first(check_in_desk),
+      terminal = first(terminal),
+      boarding_gate = first(boarding_gate),
+      getting_there = first(getting_there),
+      .groups = "drop"
+    ) %>%
+  select(departure_time_current, departure_time_original,
+         flight_status, delay_minutes, delay_status,
+         destination, flight_number, company, check_in_desk,
+         terminal, boarding_gate, getting_there)
+}
+
+
+```
+
+## MOTHERFUNCTION 
+
+```{r motherfunction}
+
+scrape_flights <- function(url) {
+  
+  # all flight nodes
+  all_flight_nodes <- url %>% 
+    html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']")
+  
+  # no flights = empty tibble
+  if (length(all_flight_nodes) == 0) {
+    return(tibble())
+  }
+
+  # child elements from each flight
+  flights_data <- map_dfr(all_flight_nodes, function(flight) {
+    
+    flight <- html_children(flight)
+    
+  # categorise_flight function
+    categorise_flight(flight)        
+  })
+  
+  # categorise_delay function 
+  flights_data <- categorise_delay(flights_data)
+  
+  # gropu_flights function 
+  flights_data <- group_flights(flights_data)
+
+  return(flights_data)
+}
+
+```
+
+
+```{r}
+scrape_flights(aena_flight_information)
+
+```
+
+# CSV 
+
+TODO: 
+```{r, eval=F}
+# -------------------------------------------------------
+airport_urls <- list(
+  "MAD" = "Flight information _ Infovuelos _ Aena.html", 
+  "BCN" = "Información sobre vuelos _ Infovuelos _ Aena_BCN.html")
+```
+
+
+## individual airports
+
+loop through multiple airport URLs + scrape the flight data + save each tibble as a CSV file with the airport name in the filename
+
+```{r function CSV individual airports}
+tibble_flights <- list()
+
+save_flights_data <- function(url, airport_name) {
+  
+  # scrape flight data
+  tibble_flights <- scrape_flights(url)
+  
+  # no data = skip saving + message
+  if (nrow(tibble_flights) == 0) {
+    
+    print(paste("No flights found for", 
+                airport_name, 
+                "- Skipping CSV save."))
+    return(NULL)
+    
+  }
+
+  # timestamp column
+  tibble_flights$date_saved <- format(Sys.time(), "%Y-%m-%d %H:%M")
+
+  # file path (save in the current working directory) with airport name
+  folder_path <- "flights_data"
+  file_path <- paste0(folder_path, "/", airport_name, "_flights.csv")
+
+  # make sure the directory exists
+  if (!dir.exists(folder_path)) {
+    dir.create(folder_path)
+  }
+  
+  # silent try
+  response <- try(read_csv(file_path, show_col_types = FALSE), silent = TRUE)
+
+  # if the file doesnt exist => create it 
+  
+  if (inherits(response, "try-error")) {
+    
+    print(paste("Creating new file for", airport_name))
+    write_csv(tibble_flights, file_path)
+    
+  } else {
+    
+    # if file exists => append new data
+    
+    print(paste0("Updating ", airport_name, "_flights.csv file"))
+    
+    rbind(response, tibble_flights) %>% write_csv(file_path)
+    
+  }
+}
+```
+
+```{r}
+save_flights_data(aena_flight_information, "MAD")
+```
+
+
+## LOOP for ALL INDIVIDUAL airports
+
+```{r command CSV loop all individual airports}
+# loop through all airports and save data
+walk2(airport_urls, names(airport_urls), save_flights_data)
+
+```
+
+## all airports (we combine all datasets): 
+
+```{r function combine_flights_data}
+combine_flights_data <- function(folder_path = "flights_data") {
+  
+  # get all csv files
+  csv_files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+  
+  # no files no info
+  if (length(csv_files) == 0) {
+    print("No CSV files found in the folder.")
+    return(NULL)
+  }
+  
+  # all CSVs + map_dfr to avoid looping (loops suck)! 
+  all_data <- map_dfr(csv_files, function(file) {
+    
+    data <- read_csv(file, show_col_types = FALSE)
+    
+    # extract airport name = filename without extension
+    airport_name <- tools::file_path_sans_ext(basename(file))
+    
+    # add airport column 
+    data$source <- airport_name
+    
+    return(data)
+  })
+  
+  return(all_data)
+}
+```
+
+RESULT: FUNCTIONED
+
+```{r function CSV save_combined_flights}
+save_combined_flights <- function(folder_path = "flights_data", output_file = "flights_data/all_flights_combined.csv") {
+  
+  # Combine all airport data
+  all_airports_data <- combine_flights_data(folder_path)
+  
+  # no data = no info
+  if (nrow(all_airports_data) == 0) {
+    
+    print("No data to save.")
+    return(NULL)
+    
+  }
+
+  # silent try
+  res <- try(read_csv(output_file, show_col_types = FALSE), silent = TRUE)
+
+  # same as before
+  if (inherits(res, "try-error")) {
+    
+    print("Creating new all_flights_combined.csv file")
+    write_csv(all_airports_data, output_file)
+    
+  } else {
+    
+    print("Updating all_flights_combined.csv file")
+    
+    rbind(res, all_airports_data) %>% write_csv(output_file)
+    
+  }
+}
+```
+
+
+```{r}
+save_combined_flights()
+
+```
 
