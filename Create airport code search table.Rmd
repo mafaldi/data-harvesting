@@ -53,12 +53,12 @@ write_html(webpage_airport_names, "airport_names.html")
 extract_airport_table <- webpage_airport_names %>%
   xml_find_all("//main//ul[@class='links']")
 
-airport_names <- extract_aiport_table %>%
+airport_names <- extract_airport_table %>%
   xml_find_all(".//li/a") %>% # Find <a> tags within <li>
   xml_text() # Extract the text
 
 
-extract_aiport_table <- webpage_airport_names |> 
+extract_airport_table <- webpage_airport_names |> 
   xml_find_all("//main//ul[@class='create-columns visible']")
 
 extract_names <- function(xml_node) {
