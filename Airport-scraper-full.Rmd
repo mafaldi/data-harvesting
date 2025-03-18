@@ -1,7 +1,7 @@
 ---
-title: "Testing Selenium + Docker"
-author: "bmck"
-date: "2025-02-28"
+title: "Full airport scraper"
+author: "Mafalda Gonzalez Gonzalez & Brad McKenzie"
+date: "2025-03-18"
 output: html_document
 ---
 
@@ -12,29 +12,26 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Instructions:
 This package will scrape information on the current status of flights in Spanish airports. It will use data from `aena.es` to scrape real time information on flights in the 2 hours prior and 12 hours ahead. AENA has information on 48 Spanish airports and heliports. You can return the status of each individual airport, or return the results for only the busiest airports. 
 
-## SPECIFY WHICH AIRPORT YOU WANT
+Ensure you have run the docker code as per the repository .readme instructions: 
+```         
+docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
+```
 
-In the github repos, you will find a table that has been generated from a separate code search page. This joins AENA and wikipedia data to allow you to find the Airport code you want. Search here and enter the 3 digit IATA code below as a character in the airport_code variable before running more code. E.g. `airport_code <- "MAD"` would be used for Madrid-Adolfo Suarez. 
 
-We use this as the default search since we live here and are most interested.
+# Which aiport?
+
+In the github repos, you will find a table that has been generated from a separate script (`create airport code search table`). This joins AENA and wikipedia data to allow search for specific airport codes that match to the AENA website. 
+
+While you can search with names of cities, some cities have multiple airports, so the 3 digit IATA code is the best search option. 
+
+To input your airport code, update the airport_code below as a character string E.g. `airport_code <- "MAD"` would be used for Madrid Adolfo-Suarez Airport. We use "MAD" as the default search since we live here and are most interested.
 
 ```{r}
 airport_code <- ""
 
-#create default search as MAD - Madrid, if no airport is selected. 
+#create default search as MAD - Madrid, if no airport is selected above 
 airport_code <- ifelse(airport_code == "", "MAD", airport_code)
 ```
-
-
-## Functions to call
-
-`check_airport_status()` will return information on a specific airport that you call. This is done by using an 
-Smaller airports can be called specifically in our call_specific_airport() function.
-
-`compare_busy_airports()` will loop over all airports and only return information on those with over 1,000 upcoming flights in the following 48 hours. This is because 
-
-*if you want to loop over all airports*
-You could reutilise this code and change the minimum number of flights needed for an airport to be included in this second function. The reason we have limited the code is because of lack of comparability between airports.  code can loop over all airports in Spain or call one individual airport. 
 
 #### Set your user-agent
 (check your user agent [here](https://www.google.com/search?client=ubuntu&channel=fs&q=what%27s+my+user+agent&ie=utf-8&oe=utf-8))
