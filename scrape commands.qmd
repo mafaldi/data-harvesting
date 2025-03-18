@@ -455,7 +455,9 @@ tibble_flights <- scrape_flights(url)
 
 ```
 
-# SAVING CSV
+# f: CSV 
+
+## individual airports
 
 loop through multiple airport URLs + scrape the flight data + save each tibble as a CSV file with the airport name in the filename
 
@@ -503,6 +505,9 @@ save_flights_data <- function(url, airport_name) {
   } else {
     
     # if file exists => append new data
+    
+    print(paste0("Updating ", airport_name, "_flights.csv file"))
+    
     rbind(response, tibble_flights) %>% write_csv(file_path)
     
   }
@@ -510,14 +515,91 @@ save_flights_data <- function(url, airport_name) {
 
 # -------------------------------------------------------
 airport_urls <- list(
-  "MAD" = "Flight information _ Infovuelos _ Aena.html")
+  "MAD" = "Flight information _ Infovuelos _ Aena.html", 
+  "BCN" = "Información sobre vuelos _ Infovuelos _ Aena_BCN.html")
 
 # loop through all airports and save data
 walk2(airport_urls, names(airport_urls), save_flights_data)
 
 ```
+## all airports (we combine all datasets): 
 
+```{r}
+combine_flights_data <- function(folder_path = "flights_data") {
+  
+  # get all csv files
+  csv_files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+  
+  # no files no info
+  if (length(csv_files) == 0) {
+    print("No CSV files found in the folder.")
+    return(NULL)
+  }
+  
+  # all CSVs + map_dfr to avoid looping (loops suck)! 
+  all_data <- map_dfr(csv_files, function(file) {
+    
+    data <- read_csv(file, show_col_types = FALSE)
+    
+    # extract airport name = filename without extension
+    airport_name <- tools::file_path_sans_ext(basename(file))
+    
+    # add airport column 
+    data$source <- airport_name
+    
+    return(data)
+  })
+  
+  return(all_data)
+}
+```
 
+RESULT: MANUAL
+```{r, eval=F}
+all_airports_data <- combine_flights_data()
+
+print(all_airports_data)
+
+write_csv(all_airports_data, "flights_data/all_flights_combined.csv")
+```
+
+RESULT: FUNCTIONED
+
+```{r}
+save_combined_flights <- function(folder_path = "flights_data", output_file = "flights_data/all_flights_combined.csv") {
+  
+  # Combine all airport data
+  all_airports_data <- combine_flights_data(folder_path)
+  
+  # no data = no info
+  if (nrow(all_airports_data) == 0) {
+    
+    print("No data to save.")
+    return(NULL)
+    
+  }
+
+  # silent try
+  res <- try(read_csv(output_file, show_col_types = FALSE), silent = TRUE)
+
+  # same as before
+  if (inherits(res, "try-error")) {
+    
+    print("Creating new all_flights_combined.csv file")
+    write_csv(all_airports_data, output_file)
+    
+  } else {
+    
+    print("Updating all_flights_combined.csv file")
+    
+    rbind(res, all_airports_data) %>% write_csv(output_file)
+    
+  }
+}
+
+save_combined_flights()
+
+```
 
 
 
