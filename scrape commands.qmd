@@ -23,7 +23,6 @@ library(lubridate)
 library(RSelenium)
 ```
 
-
 # Airport
 
 ```{r}
@@ -187,8 +186,6 @@ clean_text %>%
 
 =\> better with str_sub(., 1, 5) caus eit will automatically put the same time if there is no "tachado"
 
-
-
 ## f: flight information
 
 ```{r}
@@ -224,7 +221,6 @@ categorise_flight <- function(flight) {
 
 categorise_flight(one_flight)
 ```
-
 
 # Read all flights
 
@@ -359,13 +355,11 @@ categorise_delay(flights_data)
 flights_data <- categorise_delay(flights_data)
 ```
 
-
-# unique flights 
+# unique flights
 
 ```{r, eval=F}
 flights_data
 ```
-
 
 ```{r}
 flights_data %>%
@@ -421,10 +415,10 @@ group_flights(flights_data)
   
 ```
 
-
 todo: plane statistics website =\> data on average, medium delay
 
-# FUNCTION 
+# FUNCTION
+
 ```{r}
 
 scrape_flights <- function(url) {
@@ -457,9 +451,74 @@ scrape_flights <- function(url) {
   return(flights_data)
 }
 
-scrape_flights(url)
+tibble_flights <- scrape_flights(url)
 
 ```
+
+# SAVING CSV
+
+loop through multiple airport URLs + scrape the flight data + save each tibble as a CSV file with the airport name in the filename
+
+```{r}
+
+tibble_flights <- list()
+
+save_flights_data <- function(url, airport_name) {
+  
+  # scrape flight data
+  tibble_flights <- scrape_flights(url)
+  
+  # no data = skip saving + message
+  if (nrow(tibble_flights) == 0) {
+    
+    print(paste("No flights found for", 
+                airport_name, 
+                "- Skipping CSV save."))
+    return(NULL)
+    
+  }
+
+  # timestamp column
+  tibble_flights$date_saved <- format(Sys.time(), "%Y-%m-%d %H:%M")
+
+  # file path (save in the current working directory) with airport name
+  folder_path <- "flights_data"
+  file_path <- paste0(folder_path, "/", airport_name, "_flights.csv")
+
+  # make sure the directory exists
+  if (!dir.exists(folder_path)) {
+    dir.create(folder_path)
+  }
+  
+  # silent try
+  response <- try(read_csv(file_path, show_col_types = FALSE), silent = TRUE)
+
+  # if the file doesnt exist => create it 
+  
+  if (inherits(response, "try-error")) {
+    
+    print(paste("Creating new file for", airport_name))
+    write_csv(tibble_flights, file_path)
+    
+  } else {
+    
+    # if file exists => append new data
+    rbind(response, tibble_flights) %>% write_csv(file_path)
+    
+  }
+}
+
+# -------------------------------------------------------
+airport_urls <- list(
+  "MAD" = "Flight information _ Infovuelos _ Aena.html")
+
+# loop through all airports and save data
+walk2(airport_urls, names(airport_urls), save_flights_data)
+
+```
+
+
+
 
 
 # Selenium test
@@ -511,6 +570,6 @@ remDr$open()
 
 # Selenium
 
-# Output??? 
+# Output???
 
-shiny app with location of the airport and like symbols?? and maybe some charts? 
+shiny app with location of the airport and like symbols?? and maybe some charts?
