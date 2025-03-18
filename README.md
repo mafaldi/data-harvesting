@@ -11,31 +11,35 @@ It uses a combination of Selenium scraping to set the correct pages and times to
 
 ## 2. Instructions
 
-- **1: setting up the Docker container**
+### 1: Setting up the Docker container
 
 There is two options, you can try to install Selenium, and pray that it works with your computer, or you can install Docker Desktop. Docker Desktop will enable you to sideline the Selenium program and simplify the setup process by eliminating the need to manually install browsers, WebDriver binaries, and Selenium server dependencies. Hence, it is the option we went for and recommend.
+
 If you do not have Docker Desktop, install the correct version for your system.
-Once you have Docker, start it and run the Docker command for the Selenium Firefox container in PowerShell (Windows) or Terminal (Apple). The code is below. 
+
+Once you have Docker, start it and run the Docker command below for the Selenium Firefox container in PowerShell (Windows) or Terminal (Apple).
 
 ```         
 docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
 ```
 
-- This will open a standalone contained that will enable us to access webpages through Selenium in R. 
+This will open a standalone contained that will enable us to access webpages through Selenium in R. 
+    
 - Optional: visible Firefox
 
     - If you would like to see how Selenium works in action, you can install a VNC Viewer, such as TigerVNC to see the live browser. 
     - Once installed, connect the port to: localhost:5900. No password required
 
-If you want to make sure that the container is running, you can inster "docker ps" into your PowerShell / Terminal. You should be able to see the container selenium_firefox in the list. 
+- If you want to make sure that the container is running, you can inster "docker ps" into your PowerShell / Terminal. You should be able to see the container selenium_firefox in the list. 
 
-**2. Library requierements** 
+### 2. Library requierements
 
 Make sure you have the following libraries loaded: 
+
 ```
 ```
 
-**3. Script**
+### 3. Script
 
 Download `scrapie.R` from this repository and open RStudio. 
 Now, you can either .... 
