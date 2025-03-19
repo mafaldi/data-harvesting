@@ -48,27 +48,7 @@ webpage_airport_names <- read_html(url)
 
 Now we write the html to check the structure. This page relies on javascript, but as we just want basic data, we can still extract from the base html file. It's just a list of dot point information. 
 
-```{r, eval=FALSE}
 
-write_html(webpage_airport_names, "airport_names.html")
-extract_airport_table <- webpage_airport_names %>%
-  xml_find_all("//main//ul[@class='links']")
-
-airport_names <- extract_airport_table %>%
-  xml_find_all(".//li/a") %>% # Find <a> tags within <li>
-  xml_text() # Extract the text
-
-
-extract_aiport_table <- webpage_airport_names |> 
-  xml_find_all("//main//ul[@class='create-columns visible']")
-
-extract_names <- function(xml_node) {
-  a_nodes <- xml_find_all(xml_node, "//li/a") # Find <a> nodes within <li>
-  a_texts <- xml_text(a_nodes) # Extract text from <a> nodes
-  return(a_texts)
-}
-
-```
 
 ```{r}
 url <- "https://www.aena.es/en/passengers/our-airports.html"
