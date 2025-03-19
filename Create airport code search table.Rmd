@@ -1,11 +1,11 @@
 ---
 title: "Extract airport code list"
-author: "bmck"
+author: "Mafalda Gonzalez Gonzalez + Brad McKenzie"
 date: "2025-03-17"
 output: html_document
 ---
 
-This will extract all the airport and heliport lists that are searchable in AENA. It will extract all the information from the autofill dropdown. Then tidy the data so we have a clean searchable airport list with codes. 
+This will extract all the airport and heliport lists that are searchable in AENA. It will scrape the information from the AENA airport page. Then we tidy the data, scrape and join information from Wikipedia to have city names and a more searchable product. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -35,6 +35,7 @@ library(xml2)
 library(httr)
 library(tidyverse)
 library(janitor)
+library(readr)
 ```
 
 
@@ -47,13 +48,13 @@ webpage_airport_names <- read_html(url)
 
 Now we write the html to check the structure. This page relies on javascript, but as we just want basic data, we can still extract from the base html file. It's just a list of dot point information. 
 
-```{r}
+```{r, eval=FALSE}
 
 write_html(webpage_airport_names, "airport_names.html")
 extract_airport_table <- webpage_airport_names %>%
   xml_find_all("//main//ul[@class='links']")
 
-airport_names <- extract_aiport_table %>%
+airport_names <- extract_airport_table %>%
   xml_find_all(".//li/a") %>% # Find <a> tags within <li>
   xml_text() # Extract the text
 
@@ -225,4 +226,11 @@ We now have a full searchable table of airport codes that exactly matches the AE
 ```{r}
 full_airport_names
 ```
+
+Write this as a CSV, so we can us to search. 
+
+```{r}
+write_csv(full_airport_names, "Airport_code_search_table.csv")
+```
+
 
