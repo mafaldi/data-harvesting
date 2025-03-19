@@ -409,25 +409,34 @@ paste("We will require",num_clicks,"clicks. This will take about 1 second per cl
 
 ```
 
+We create a function to through the "see more" function to expand and view all flights. Adding a sleep to not overload the website does extend the wait for larger airports. It is generally under 2 minutes run time though. 
+
 ```{r}
-# create function to click page a certain number of times
-multi_click_viewmore <- function(num_clicks) {
-  # loop for number of clicks and add sleep
-  for (i in 1:num_clicks) { 
-    # find button (consistent as page expands)
-    click_button <- remDr$findElement(using = "xpath", value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
-    # select and sleep before next run
-    click_button$clickElement() 
-    Sys.sleep(1) # Sleep for 1 second
+multi_click_viewmore <- function(remDr) {
+  while (TRUE) { # Loop indefinitely until can't find the "see more" button
+    tryCatch({
+      click_button <- remDr$findElement(using = "xpath", value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
+      click_button$clickElement()
+      Sys.sleep(1)
+      # based on the error type, we stop the loop and return message.
+    }, error = function(e) {
+      if (grepl("Unable to locate element", e$message)) {
+        # Element not found, stop the loop
+        message("Button not found. Stopping loop.")
+        return(invisible(NULL)) # Exit the function
+      } else {
+        # Other error
+        stop(e)
+      }
+    })
   }
 }
-
 ```
 
 Now we run this click more to expand our page to view all flights
 
-```{r}
-multi_click_viewmore(num_clicks = num_clicks)
+```{r, eval=FALSE}
+multi_click_viewmore(remDr = remDr)
 ```
 
 #### Now we extract our page html file for analysis.
