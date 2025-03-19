@@ -27,7 +27,7 @@ While you can search with names of cities, some cities have multiple airports, s
 To input your airport code, update the airport_code below as a character string E.g. `airport_code <- "MAD"` would be used for Madrid Adolfo-Suarez Airport. We use "MAD" as the default search since we live here and are most interested.
 
 ```{r}
-airport_code <- ""
+airport_code <- "EAS"
 
 #create default search as MAD - Madrid, if no airport is selected above 
 airport_code <- ifelse(airport_code == "", "MAD", airport_code)
@@ -87,6 +87,25 @@ library(httr)
 
 ```
 
+First, a quick check that the airport code is valid:
+```{r}
+airport_code_list <- read.csv("Airport_code_search_table.csv") |> 
+  select(IATA_code) |> pull()
+
+# if statement based on whether code exists
+if (airport_code %in% airport_code_list) {
+  # If good, YAY
+  print(paste("Airport code", airport_code, "found. Let's get scraping!"))
+} else {
+  # Airport code is not found, return an error message
+  stop("Airport code not found. \nPlease consult our 'Airport_code_search_table.csv' and choose a new IATA code")
+}
+
+
+```
+
+
+
 ## RSelenium scraping of AENA searchbar
 
 #### Launch AENA flight info page. 
@@ -137,8 +156,6 @@ departures_box_select$getElementAttribute("value")
 To set airport of interest then choose from our dropdown menu. Airport code is used because it gives the most accurate response. 
 
 ```{r}
-# Select airport code (MAD = Adolofo Suárez Madrid) to enter the text to departures 
-airport_code <- "MAD"
 
 # send the airport code text to the departures box: 
 #first, clear the box from any exisitng text (sometimes cookies retain names)
@@ -380,8 +397,38 @@ search_button$clickElement()
 
 #### Determine our active flight information
 Read how many flights are upcoming:
+Sometimes no flights exist so we need to return an error accordingly or skip.
 
 ```{r}
+
+check_flights_exist <- function(remDr) {
+  # First search: Number of flights
+  tryCatch({
+    flight_count_element <- remDr$findElement(
+      using = "xpath",
+      value = "//section[@id='infovuelos-info']//p[@class='h5 ligero']"
+    )
+    message("We have in-scope flights. Continuing.")
+    return(invisible(NULL)) # End function if flights are found
+  }, error = function(e) {
+    # Check for the error message
+    tryCatch({
+      error_message_element <- remDr$findElement(
+        using = "xpath",
+        value = "//p[@class='denso' and text()='We cannot find any flights with the criteria given']"
+      )
+      stop("CANNOT COMPLETE: No flights found in scope for this airport with the given criteria.") # Stop with error message
+    }, error = function(e) {
+      # If neither is found, re-throw the original error
+      stop("Unexpected error occurred: ", e$message)
+    })
+  })
+}
+
+check_flights_exist(remDr=remDr)
+```
+
+```{r, eval=F}
 number_flights_upcoming_selected <- 
   remDr$findElement(using = "xpath",
                     value = "//section[@id='infovuelos-info']//p[@class='h5 ligero']")
