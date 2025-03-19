@@ -415,6 +415,7 @@ group_flights(flights_data)
   
 ```
 
+
 # FUNCTION
 
 ```{r}
