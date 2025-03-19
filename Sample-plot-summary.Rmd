@@ -13,17 +13,60 @@ This is a simple script to summarise and plot the output from the AENA scraper.
 
 ```{r}
 library(tidyverse)
+library(ggplot2)
 ```
-TO DO: 
+
+### TO DO: 
 Update the location of your saved .csv from the scraper `Airport-scraper-full.Rmd"
 
+Then you can run this full script, it will create a basic summary output and aver
+
 ```{r}
+# link your output below. May take form like: 
+#airport_data <- read_csv("flights_data/MAD_flights.csv")
+
 airport_data <- read_csv("")
 ```
+## View your table
+```{r}
+airport_data
+
+#if you want to view delays only
+```
+
+
+
+## Summary statistics
+
+```{r}
+# summary table output
+summary_stats <- airport_data |> 
+  summarise(
+    `Number of flights` = n(),
+    `Flights departed` = sum(flight_status == "Ended", na.rm=T),
+    `Flights soon to depart` = sum(flight_status %in% c("Closed", "Boarding", "Delayed"), na.rm=T),
+    `AENA reported delays` = sum(flight_status =="Delayed", na.rm=T), # their reported delays
+    `Scraper delayed flights` = sum(delay_status == "Late", na.rm=T),
+    `Average minutes per scraper delay` = round(mean(delay_minutes[delay_status == "Late"], na.rm = TRUE),2),
+    `Scraper on time flights` = sum(delay_status == "On Time", na.rm=T),
+    `Scraper early flights` = sum(delay_status == "Early", na.rm=T)) |> 
+  pivot_longer(cols = everything(),
+               names_to = "variable",
+               values_to = "value")
+
+summary_stats
+
+```
+
+## Plot current airport delays 
+
+This will work for a table with all flight information. Uncomment the line `facet_wrap(~airport_names)+` if you have the joined dataframe for each airport and want create a plot for each airport
+
+Plot the distribution of upcoming flights based on the data returned from your scraper. 
 
 ```{r}
 
-test_flights |>
+plot_upcoming_flights <- airport_data |>
   # ensure our setting date variable is formatted for the X-axis 
   mutate(departure_time_original = as.POSIXct(departure_time_original, 
                                               format = "%Y-%m-%d %H:%M:%S")) |>
@@ -43,64 +86,11 @@ test_flights |>
            xmax = max(test_flights$departure_time_original), 
            ymin = -Inf, ymax = -10, fill = "orange", alpha = 0.3) +
   theme_minimal()+
+#  facet_wrap(~airport_names)+
   labs(title = "Current flight information by delay time", 
        x = "Delay per flight in minutes", 
        y = "Original departure time",
        size = "Delay length (minutes)")
-
-
-```
-
-## View the variance of flight delays over time 
-
-This should have greater variation around This To try show variance - normally higher closer to take off
-```{r}
-
-test_flights |> 
-  mutate(departure_time_original = as.POSIXct(departure_time_original, 
-                                              format = "%Y-%m-%d %H:%M:%S")) |> 
-  ggplot(aes(x=departure_time_original, y=delay_minutes, size=abs(delay_minutes)))+
-  geom_point()+
-  geom_smooth(method="lm")+
-  theme_minimal()
-
-```
-
-
-Plotting flights by status:
-
-```{r}
-test_flights |> 
-  group_by(flight_status, delay_status) |> 
-  filter(!is.na(flight_status)) |> 
-  summarise(count=n()) |> 
-  ggplot(aes(x=delay_status, y=count, fill=delay_status))+
-  geom_col()+
-  facet_wrap(~flight_status)
-```
-
-# Plot status by airport
-```{r}
-test_flights |> 
-  group_by(flight_status, delay_status) |> tally()
-```
-
-
-
-```{r}
-# summary tablel output
-summary_stats <- test_flights |> 
-  summarise(
-    total_flights = n(),
-    departed_flights = sum(flight_status == "Ended", na.rm=T),
-    soon_to_depart = sum(flight_status %in% c("Closed", "Boarding", "Delayed"), na.rm=T),
-    aena_delays = sum(flight_status =="Delayed", na.rm=T), # their reported delays
-    calc_delays = sum(delay_status == "Late", na.rm=T),
-    calc_on_time = sum(delay_status == "On Time", na.rm=T),
-    calc_early = sum(delay_status == "Early", na.rm=T)) |> 
-  pivot_longer(cols = everything(),
-               names_to = "variable",
-               values_to = "value")
 
 ```
 
