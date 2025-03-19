@@ -18,7 +18,7 @@ docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_
 ```
 
 
-# Which aiport?
+# Which airport?
 
 In the github repos, you will find a table that has been generated from a separate script (`create airport code search table`). This joins AENA and wikipedia data to allow search for specific airport codes that match to the AENA website. 
 
@@ -87,6 +87,25 @@ library(httr)
 
 ```
 
+First, a quick check that the airport code is valid:
+```{r}
+airport_code_list <- read.csv("Airport_code_search_table.csv") |> 
+  select(IATA_code) |> pull()
+
+# if statement based on whether code exists
+if (airport_code %in% airport_code_list) {
+  # If good, YAY
+  print(paste("Airport code", airport_code, "found. Let's get scraping!"))
+} else {
+  # Airport code is not found, return an error message
+  stop("Airport code not found. \nPlease consult our 'Airport_code_search_table.csv' and choose a new IATA code")
+}
+
+
+```
+
+
+
 ## RSelenium scraping of AENA searchbar
 
 #### Launch AENA flight info page. 
@@ -137,8 +156,6 @@ departures_box_select$getElementAttribute("value")
 To set airport of interest then choose from our dropdown menu. Airport code is used because it gives the most accurate response. 
 
 ```{r}
-# Select airport code (MAD = Adolofo Suárez Madrid) to enter the text to departures 
-airport_code <- "MAD"
 
 # send the airport code text to the departures box: 
 #first, clear the box from any exisitng text (sometimes cookies retain names)
@@ -380,8 +397,38 @@ search_button$clickElement()
 
 #### Determine our active flight information
 Read how many flights are upcoming:
+Sometimes no flights exist so we need to return an error accordingly or skip.
 
 ```{r}
+
+check_flights_exist <- function(remDr) {
+  # First search: Number of flights
+  tryCatch({
+    flight_count_element <- remDr$findElement(
+      using = "xpath",
+      value = "//section[@id='infovuelos-info']//p[@class='h5 ligero']"
+    )
+    message("We have in-scope flights. Continuing.")
+    return(invisible(NULL)) # End function if flights are found
+  }, error = function(e) {
+    # Check for the error message
+    tryCatch({
+      error_message_element <- remDr$findElement(
+        using = "xpath",
+        value = "//p[@class='denso' and text()='We cannot find any flights with the criteria given']"
+      )
+      stop("CANNOT COMPLETE: No flights found in scope for this airport with the given criteria.") # Stop with error message
+    }, error = function(e) {
+      # If neither is found, re-throw the original error
+      stop("Unexpected error occurred: ", e$message)
+    })
+  })
+}
+
+check_flights_exist(remDr=remDr)
+```
+
+```{r, eval=F}
 number_flights_upcoming_selected <- 
   remDr$findElement(using = "xpath",
                     value = "//section[@id='infovuelos-info']//p[@class='h5 ligero']")
@@ -409,25 +456,34 @@ paste("We will require",num_clicks,"clicks. This will take about 1 second per cl
 
 ```
 
+We create a function to through the "see more" function to expand and view all flights. Adding a sleep to not overload the website does extend the wait for larger airports. It is generally under 2 minutes run time though. 
+
 ```{r}
-# create function to click page a certain number of times
-multi_click_viewmore <- function(num_clicks) {
-  # loop for number of clicks and add sleep
-  for (i in 1:num_clicks) { 
-    # find button (consistent as page expands)
-    click_button <- remDr$findElement(using = "xpath", value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
-    # select and sleep before next run
-    click_button$clickElement() 
-    Sys.sleep(1) # Sleep for 1 second
+multi_click_viewmore <- function(remDr) {
+  while (TRUE) { # Loop indefinitely until can't find the "see more" button
+    tryCatch({
+      click_button <- remDr$findElement(using = "xpath", value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
+      click_button$clickElement()
+      Sys.sleep(1)
+      # based on the error type, we stop the loop and return message.
+    }, error = function(e) {
+      if (grepl("Unable to locate element", e$message)) {
+        # Element not found, stop the loop
+        message("Button not found. Stopping loop.")
+        return(invisible(NULL)) # Exit the function
+      } else {
+        # Other error
+        stop(e)
+      }
+    })
   }
 }
-
 ```
 
 Now we run this click more to expand our page to view all flights
 
 ```{r}
-multi_click_viewmore(num_clicks = num_clicks)
+multi_click_viewmore(remDr = remDr)
 ```
 
 #### Now we extract our page html file for analysis.

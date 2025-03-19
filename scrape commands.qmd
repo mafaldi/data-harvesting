@@ -415,6 +415,7 @@ group_flights(flights_data)
   
 ```
 
+todo: plane statistics website =\> data on average, medium delay
 
 # FUNCTION
 
@@ -454,7 +455,7 @@ tibble_flights <- scrape_flights(url)
 
 ```
 
-# f: CSV 
+# f: CSV
 
 ## individual airports
 
@@ -521,7 +522,8 @@ airport_urls <- list(
 walk2(airport_urls, names(airport_urls), save_flights_data)
 
 ```
-## all airports (we combine all datasets): 
+
+## all airports (we combine all datasets):
 
 ```{r}
 combine_flights_data <- function(folder_path = "flights_data") {
@@ -554,6 +556,7 @@ combine_flights_data <- function(folder_path = "flights_data") {
 ```
 
 RESULT: MANUAL
+
 ```{r, eval=F}
 all_airports_data <- combine_flights_data()
 
@@ -599,8 +602,6 @@ save_combined_flights <- function(folder_path = "flights_data", output_file = "f
 save_combined_flights()
 
 ```
-
-
 
 # Selenium test
 
