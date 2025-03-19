@@ -6,13 +6,14 @@
 
 With this scraping project you will be able to scrape AENA, a Spanish website which holds information on all Spanish airports and their upcoming flights'. It uses a combination of Selenium scraping to manipulate the page search settings, plus traditional web scraping techniques to extract and clean the information.
 
-You will use the *Airport-scraper-full.Rmd* with the instructions below to find out everything you want to know Spain! (... or at least the current status of flight departures in the current 6 hour window.
+**Key documents in this repository:**
 
 |  |  |
 |---------------------|---------------------------------------------------|
-| Airport-scraper-full.Rmd | The big one! All your AENA scraping needs should be answered here. |
+| Airport-scraper-full.Rmd | The big one! All your questions will be answered here. (... as long as your question is about the current status of Spanish airport departures) |
 | Airport_code_search_table.csv | A file scraped with information on all AENA airports, their location and the IATA code. |
-|  |  |
+| Create airport code search table.Rmd | The scraping file to update the above code search csv. |
+| Sample-plot-summary.Rmd | A short file you can apply to an output CSV file from the scraper to view the distribution of upcoming flights and get quick statistics on current airport status. |
 
 ## 2. Instructions
 
