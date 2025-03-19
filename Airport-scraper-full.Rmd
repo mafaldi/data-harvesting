@@ -88,6 +88,24 @@ library(httr)
 
 ```
 
+First, a quick check that the airport code is valid:
+```{r}
+airport_code_list <- read.csv("Airport_code_search_table.csv") |> 
+  select(IATA_code) |> pull()
+
+# if statement based on whether code exists
+if (airport_code %in% airport_code_list) {
+  # If good, YAY
+  print(paste("Airport code", airport_code, "found. Let's get scraping!"))
+} else {
+  # Airport code is not found, return an error message
+  stop("Airport code not found. \nPlease consult our 'Airport_code_search_table.csv' and choose a new IATA code")
+}
+
+
+```
+
+
 # RSelenium scraping of AENA searchbar
 
 
