@@ -442,11 +442,51 @@ aena_flight_information <- read_html(aena_page_source)
 
 We now have our html script parsed into the R local program. 
 
+# all airport 
+
+saves links and names for al airports 
+
+make function 
+
+
 # Nodes scraping
+
+This part focuses on the scraping of the html websites once they are loaded to our desired parameters. 
+
+To find the table of information we are looking for, the scraping code is actually quite straight forward. We are looking to find the rows of the table, find each individual element and then open them to extract them. We can either do it with CSS or with XPath the following way (the code below is set to eval=F for automatisation purposes, to see the results it must be manually selected):  
+
+```{r, eval=F}
+# CSS selector
+url <- aena_page_source
+url %>% 
+  read_html() %>% 
+  html_nodes(xpath = "//div[@class='fila']") %>% 
+  .[[1]] %>% 
+  html_nodes(".linea.micro") %>% 
+  html_children()
+
+# XPath
+
+url %>% 
+  html_nodes(xpath = "//div[@class='fila']//div[@class='linea micro']") %>% 
+  .[[1]] %>% 
+  html_children()
+```
+
+Once we have this base, we can start building functions to extract the information. 
 
 ## Loading functions
 
 ### Flight information function 
+
+First, we create a function that will clean the information and create a tibble with it. Important here is that for the current and delayed departure time there were two options. First, you can use CSS to find the classes that contain "tachado" (original departure) and "hora" (delayed departure), with code like this: `html_nodes(xpath = "//span[not(contains( @class, 'tachado'))]")`. However, it would get complicated if there would be no delay and only one category. While we could use an `if` command to work with the different cases, it is easier to go with option two, which is using simple text manipulation with regex (regular expressions). The idea is to select out of the clean text the first line, which has inside the departure time information and could look the following way: 
+
+- `17:2018:20` = a flight originally departing at 17:20 departures now at 18:20.
+- `17:20` = a flight originally departing at 17:20 that has no delays. 
+
+Now, we set the current departure time as the first five characters, and the delayed departure time as the last five characters. The trick is that if there is no delay, these characters will be the same and hence current and delayed departure time will be correctly picked up without any necessity of extra or complicated coding. 
+
+Hence, the function stands like below. We need it to load for later use, as we will integrate it in other functions. We do this to simplify the process instead of having all work inside one single function. 
 
 ```{r function flight info}
 categorise_flight <- function(flight) {
@@ -483,6 +523,10 @@ categorise_flight <- function(flight) {
 
 ### Iteration through different flights (same Airport) function 
 
+With the function above we can make a general function that will loop thorugh all rows of a Airport site, get the data, categorise it and make it into a tibble. 
+
+Note that we avoid employing a loop by using map_dfr. The idea is to both lessen the expense for the computer and because avoiding loops is generally a good idea. 
+
 ```{r function scrape_flights}
 scrape_flights <- function(url) {
 
@@ -501,6 +545,12 @@ scrape_flights <- function(url) {
 ```
 
 ### Delay time and status function 
+
+With our tibble set we can transform the information to get better insights into the data. To calculate the delay time and status, we use the `lubridate` package to convert the current and delayed time into hours and minutes of the day of extracting the information. 
+
+To calculate the delay we have to pay extra attention to flights which delay cross over into the next day after midnight. To solve this issue we set in our function a `case_when()` command, in which if the current departure time is smaller than the original (e.g. 00:30 < 23:20) and the difference is bigger than 30 minutes, the current delay will get 1 day added, so that the program understands that is a day later. The difference of 30 minutes is because we assume that a flight that left less than 30 minutes before the original departure time, is not a day late but 30 minutes early. This time can be adjusted if wished. 
+
+Then we can also calculate the delay_time and classificate the delay status into early if its above 5 minutes before departure, on time if its between 5 minutes before or 10 minutes later, and late if its more than 10 mnutes delayed. This is also easily changeable if wished. 
 
 ```{r function categorise_delay}
 
@@ -537,6 +587,10 @@ categorise_delay <- function(flights_data) {
 
 ### Unique flights function
 
+Finally, if we were to open one of the tibbles right now, we would noticed that a lot of flights have the same information but different companies (carriers). This is because they are actually the same flight that are shown multiple times depending on the companies that offer that flight. Hence, we are going to "`unique()`" the flights with the function below. 
+
+We choose the categories of current departure time, destination and boarding gate to group the data. We use these three categories arbitrarily, as all categories but company and flight_number will be the same. Hence, we collapse the information of those two categories so that we reduce the rows of flights into the actual number of flights. Finally, we select the variables in the specific order below to keep the related variables together. 
+
 ```{r function group flights}
 group_flights <- function(flights_data) {
   flights_data %>%
@@ -565,6 +619,8 @@ group_flights <- function(flights_data) {
 ```
 
 ## MOTHERFUNCTION 
+
+Having coded all functions above, we can go ahead and compose our main function. We use our scrape_flight function of above and update it with our other functions. Furthermore, me create an `if` command to make empty tibbles if there are no rows in the Airport websites. This will be used later to skip creating CSV's if there is no information. 
 
 ```{r motherfunction}
 
@@ -613,6 +669,17 @@ TODO:
 airport_urls <- list(
   "MAD" = "Flight information _ Infovuelos _ Aena.html", 
   "BCN" = "Información sobre vuelos _ Infovuelos _ Aena_BCN.html")
+
+names_airport <- 
+  
+links_airport <- 
+
+airport_urls <- list(
+  names_airport = links_airport)
+
+  "MAD" = "Flight information _ Infovuelos _ Aena.html", 
+  "BCN" = "Información sobre vuelos _ Infovuelos _ Aena_BCN.html")  
+  
 ```
 
 
@@ -686,6 +753,7 @@ walk2(airport_urls, names(airport_urls), save_flights_data)
 ```
 
 ## all airports (we combine all datasets): 
+making dataset 
 
 ```{r function combine_flights_data}
 combine_flights_data <- function(folder_path = "flights_data") {
@@ -718,6 +786,8 @@ combine_flights_data <- function(folder_path = "flights_data") {
 ```
 
 RESULT: FUNCTIONED
+saving dataset 
+
 
 ```{r function CSV save_combined_flights}
 save_combined_flights <- function(folder_path = "flights_data", output_file = "flights_data/all_flights_combined.csv") {
