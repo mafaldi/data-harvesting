@@ -42,7 +42,7 @@ library(rvest)
 library(httr)
 ```
 
-### 3. How to run this scraper? 
+### 3. How to run this scraper?
 
 Assuming Docker and your packages are installed, you can run the scraper.
 
@@ -85,4 +85,24 @@ Inside the script there will be a number of things happening:
 
 4.  Finally, it will **create a file**, `xxx`, that will have it all saved.
 
-## 4. Shiny App
+## 4. Known limitations
+
+This scraper requires dynamic setting of times and dates through RSelenium that detect information on the page and the actual time to run data. There are two main timing issues:
+
+-   *Running the scraper between midnight and 1:59am.* The system time will read date `today`. However, AENA search defaults to -2hrs before your page opens. So the AENA start date that we need to use will be set as date: `today - 1`. As the scraper is set to add 12 hours from the AENA date. It ends up adding 12 hours + 1 day to the search. So you will return 24 hours of extra flight information.
+
+-   *Running the scraper after midday AND the last day of the month.* If you search in the afternoon, the scraper will update to set the end search time to early hours of the following morning. However, if this happens on the last day of the month, the scraper cannot update the calendar effectively to change the month and then search and select the first day of the following month.
+
+## 5. Usages
+
+This scraper produces a clean live dataset of the current status of any Spanish airport. Some suggested applications and research questions that may lead you to use this scraper:
+
+1.  Check the current airport status For example; *what's happening at Valencia airport right now, are the flights on time? how many flights are there?*
+
+-   To access some pre-prepared functions to apply to the output datasets, you can go to the `Sample functions to summarise and plot` .Rmd file. To run, update the airport_data \<- read_csv() function to the location of your dataset, then run the program.
+
+2.  Build your own database to understand trends between and at airports. For example:
+
+-   Create an automatic timer to scrape all the airport information at your time of interest and model the true airport delays over time at your airport of choice! Use cron or another similar program to schedule.
+
+-   This could also be used to build a dataset to the frequency and duration of delays between different times of the day e.g. *is my flight out of Barcelona more likely to be delayed if I book in the morning or afternoon?*
