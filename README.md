@@ -31,7 +31,7 @@ This will open a **standalone container that will enable us to access webpages t
 
 -   If you want to make sure that the container is running, you can type "docker ps" into your PowerShell / Terminal. You should be able to see the container selenium_firefox in the list.
 
-### 2. Library requirements
+## 2. Library requirements
 
 Make sure you have the following libraries loaded:
 
@@ -42,27 +42,37 @@ library(rvest)
 library(httr)
 ```
 
-### 3. How to run this scraper?
+## 3. How to run this scraper?
 
 Assuming Docker and your packages are installed, you can run the scraper.
 
-1.  Choose an airport IATA code of interest
-
-The file `Airport_code_search_table.csv` has information on all the AENA airports in Spain that can be searched. This table has been scraped from AENA and joined with Wikipedia information so the user can understand what city or region an airport is in.
-
-[**TO DO:**]{.underline} Choose a 3 digit AITA code for the airport you want to scrape. If you do not select one, you can still run the code. *The default search is MAD (Madrid–Barajas Airport).*
-
-If you think updates exist, you can use the `Create airport code search table.Rmd` to update and write a new csv file with the list of airports, codes and cities. This is fast to run. As at 19 March, there are 48 airports on AENA.
-
-2.  Access the scraping script to run
+### a) Access the scraping script
 
 Download `Airport_scraper_full.R` from this repository and open RStudio.
 
+This code starts with all of the step by step code chunks to run the RSelenium code and process the table. However, most of these are set to `eval=FALSE` as we have more complete functions below that aggregate each step. We recommend looking through step-by-step to understand the process before running the functions.
+
 Now, you can either search for 1 airport or all airports in Spain.
 
-**In-scope flights**: Searches are limited to 12 hours of data. This generally includes flights from the 2 hours before and 10 hours ahead (or thereabouts). We select this 12 hour scope as delays are rarely announced over 12 hours in advance.
+**In-scope flights**: Searches are set to return 6 hours of airport flight data. AENA generally includes flights from the 2 hours before and 4 hours ahead (or thereabouts). We select this 6 hour scope as delays are rarely announced over 6 hours in advance.
 
-**Time to run the script:** If you search for one large airport, like Madrid, it can take up to 2 minutes to run the script due to sleeps in the code. A small airport should not take more than 20-30 seconds in general.
+#### (i) Scrape information for one Spanish airport. 
+
+1.  Choose a 3 digit AITA code for the airport you want to scrape. If you do not select one, you can still run the code. *The default search is MAD (Madrid–Barajas Airport).*
+
+If you think updates exist, you can use the `Create airport code search table.Rmd` to update and write a new csv file with the list of airports, codes and cities. This is fast to run. As at 19 March, there are 48 airports on AENA.
+
+The file `Airport_code_search_table.csv` has information on all the AENA airports in Spain that can be searched. This table has been scraped from AENA and joined with Wikipedia information so the user can understand what city or region an airport is in.
+
+Go to the function: \_\_\_\_ and insert your airport code in airport_code \<- "".
+
+Then run the function \_\_\_\_\_\_\_\_\_\_
+
+**Time to run:** For large airports, this will take around 1-2 minutes. For small ones, it shouldn't take long. Some may have no information.
+
+#### (ii) Scrape information for all airports in Spain
+
+Go to the function \_\_\_\_\_\_ and run. This will loop through every airport code in the airport code search table and return all data.
 
 ...
 
@@ -89,7 +99,7 @@ Inside the script there will be a number of things happening:
 
 This scraper requires dynamic setting of times and dates through RSelenium that detect information on the page and the actual time to run data. There are two main timing issues:
 
--   *Running the scraper between midnight and 1:59am.* The system time will read date `today`. However, AENA search defaults to -2hrs before your page opens. So the AENA start date that we need to use will be set as date: `today - 1`. As the scraper is set to add 12 hours from the AENA date. It ends up adding 12 hours + 1 day to the search. So you will return 24 hours of extra flight information.
+-   *Running the scraper between midnight and 1:59am.* The system time will read date `today`. However, AENA search defaults to -2hrs before your page opens. So the AENA start date that we need to use will be set as date: `today - 1`. As the scraper is set to add 6 hours from the AENA date. It ends up adding 6 hours + 1 day to the search. So you will return 6 hours of extra flight information.
 
 -   *Running the scraper after midday AND the last day of the month.* If you search in the afternoon, the scraper will update to set the end search time to early hours of the following morning. However, if this happens on the last day of the month, the scraper cannot update the calendar effectively to change the month and then search and select the first day of the following month.
 
@@ -106,3 +116,5 @@ This scraper produces a clean live dataset of the current status of any Spanish 
 -   Create an automatic timer to scrape all the airport information at your time of interest and model the true airport delays over time at your airport of choice! Use cron or another similar program to schedule.
 
 -   This could also be used to build a dataset to the frequency and duration of delays between different times of the day e.g. *is my flight out of Barcelona more likely to be delayed if I book in the morning or afternoon?*
+
+3.  Update this scraping code to make your own search parameters. For example, if you want the search to be 12 hours, update the search terms within the time and calendar function to change your search times i.e. from `end_hr = start_hr +6` to `end_hr = start_hr +12`.
