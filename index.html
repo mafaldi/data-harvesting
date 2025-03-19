@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Airport Search</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        input[type="text"] {
+            width: 300px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <input type="text" id="searchInput" placeholder="Search...">
+    <table id="airportTable">
+        <thead>
+            <tr>
+                <th>City</th>
+                <th>IATA Code</th>
+                <th>Airport Name</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+        fetch('Airport_code_search_table.csv')
+            .then(response => response.text())
+            .then(csvData => {
+                const rows = csvData.split('\n').slice(1); // Skip header row
+                const tableBody = document.querySelector('#airportTable tbody');
+
+                rows.forEach(row => {
+                    const columns = row.split(',');
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${columns[0]}</td><td>${columns[1]}</td><td>${columns[2]}</td>`;
+                    tableBody.appendChild(tr);
+                });
+
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('keyup', function() {
+                    const filter = searchInput.value.toUpperCase();
+                    const tr = tableBody.getElementsByTagName('tr');
+
+                    for (let i = 0; i < tr.length; i++) {
+                        const tdCity = tr[i].getElementsByTagName('td')[0];
+                        const tdCode = tr[i].getElementsByTagName('td')[1];
+                        const tdName = tr[i].getElementsByTagName('td')[2];
+
+                        if (tdCity || tdCode || tdName) {
+                            const txtValueCity = tdCity.textContent || tdCity.innerText;
+                            const txtValueCode = tdCode.textContent || tdCode.innerText;
+                            const txtValueName = tdName.textContent || tdName.innerText;
+
+                            if (txtValueCity.toUpperCase().indexOf(filter) > -1 ||
+                                txtValueCode.toUpperCase().indexOf(filter) > -1 ||
+                                txtValueName.toUpperCase().indexOf(filter) > -1) {
+                                tr[i].style.display = "";
+                            } else {
+                                tr[i].style.display = "none";
+                            }
+                        }
+                    }
+                });
+            });
+    </script>
+</body>
+</html>
