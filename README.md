@@ -1,12 +1,18 @@
 # Spanish airports information scraper and delays tracker
 
-With this scraping project you will be able to scrape AENA, a Spanish website which harvours all Spanish airports and their flights' information. It uses a combination of Selenium scraping to set the correct pages and times to scrape, plus traditional web scraping techniques to extract the information.
-
 > Authors: Brád McKenzie & Mafalda González González
 
 ## 1. Description of the project
 
-### Files
+With this scraping project you will be able to scrape AENA, a Spanish website which holds information on all Spanish airports and their upcoming flights'. It uses a combination of Selenium scraping to manipulate the page search settings, plus traditional web scraping techniques to extract and clean the information.
+
+You will use the *Airport-scraper-full.Rmd* with the instructions below to find out everything you want to know Spain! (... or at least the current status of flight departures in the current 6 hour window.
+
+|  |  |
+|---------------------|---------------------------------------------------|
+| Airport-scraper-full.Rmd | The big one! All your AENA scraping needs should be answered here. |
+| Airport_code_search_table.csv | A file scraped with information on all AENA airports, their location and the IATA code. |
+|  |  |
 
 ## 2. Instructions
 
@@ -33,7 +39,7 @@ This will open a **standalone container that will enable us to access webpages t
 
 ## 2. Library requirements
 
-Make sure you have the following libraries loaded:
+Make sure you have the following libraries installed and loaded:
 
 ```         
 library(RSelenium)
@@ -48,7 +54,7 @@ Assuming Docker and your packages are installed, you can run the scraper.
 
 ### a) Access the scraping script
 
-Download `Airport_scraper_full.R` from this repository and open RStudio.
+Download `Airport_scraper_full.Rmd` from this repository and open RStudio.
 
 This code starts with all of the step by step code chunks to run the RSelenium code and process the table. However, most of these are set to `eval=FALSE` as we have more complete functions below that aggregate each step. We recommend looking through step-by-step to understand the process before running the functions.
 
@@ -56,25 +62,44 @@ Now, you can either search for 1 airport or all airports in Spain.
 
 **In-scope flights**: Searches are set to return 6 hours of airport flight data. AENA generally includes flights from the 2 hours before and 4 hours ahead (or thereabouts). We select this 6 hour scope as delays are rarely announced over 6 hours in advance.
 
-#### (i) Scrape information for one Spanish airport. 
+-   <div>
 
-1.  Choose a 3 digit AITA code for the airport you want to scrape. If you do not select one, you can still run the code. *The default search is MAD (Madrid–Barajas Airport).*
+    **DEFAULT RUN SETTINGS**: If you run the Airport_scraper_full.Rmd in full, the default setting will be to loop through every single AENA airport to scrape every single html, extract the tables and clean them, then save a .csv for each airport and one full process. Depending on how many flights there are and how fast the system is running, this will take between 1 and 4 hours.
 
-If you think updates exist, you can use the `Create airport code search table.Rmd` to update and write a new csv file with the list of airports, codes and cities. This is fast to run. As at 19 March, there are 48 airports on AENA.
+    </div>
 
-The file `Airport_code_search_table.csv` has information on all the AENA airports in Spain that can be searched. This table has been scraped from AENA and joined with Wikipedia information so the user can understand what city or region an airport is in.
+#### [(i) To scrape information for one Spanish airport.]{.underline} 
 
-Go to the function: \_\_\_\_ and insert your airport code in airport_code \<- "".
+2.  Choose a 3 digit AITA code for the airport you want to scrape. If you do not select one, you can still run the code. *The default search is MAD (Madrid–Barajas Airport).*
 
-Then run the function \_\_\_\_\_\_\_\_\_\_
+The file `Airport_code_search_table.csv` has information on all the AENA airports in Spain that can be searched. This table has been scraped from AENA and joined with Wikipedia information so the user can understand what city or region an airport is in. (If you think updates exist, you can use the `Create airport code search table.Rmd` to update and write a new csv file with the list of airports, codes and cities. This is fast to run. As at 19 March, there are 48 airports on AENA.)
 
-**Time to run:** For large airports, this will take around 1-2 minutes. For small ones, it shouldn't take long. Some may have no information.
+3.  Go to the section **"Which code?"** at the top of the document and enter your airport code to the `airport_code <-` vector
+4.  Go to the section **"Functionastic"** and we find the `scrape_flights()` function. You will see that this function calls all of the following functions too:
+    -   *search_flights_aena()*
 
-#### (ii) Scrape information for all airports in Spain
+    -   *set_time_and_date()*
 
-Go to the function \_\_\_\_\_\_ and run. This will loop through every airport code in the airport code search table and return all data.
+    -   *multi_click_viewmore()*
+5.  *Optional:* If you want to save your output to a csv, use the *save_flights_data()* function.
 
-...
+**Expected time to run:** For large airports, this can take around 5 minutes. For small ones, it shouldn't take more than 1 minute. The longest extraction for small airports is connecting the Docker. The longest part for large airports is repeated page expansions through RSelenium to view all flights. If an airport has no information, it should return a message in the console to let you know.
+
+**Airport cheat codes:** The IATA codes for the 3 busiest airports in Spain are: MAD (Madrid), BCN (Barcelona) and PMI (Palma De Mallorca). Each had over 30 million passengers in 2023.
+
+#### [(ii) To scrape information for all airports in Spain (default)]{.underline}
+
+2.  Go to the FAST AND FUNCTION section and run the `scrape_all_airports()` function.
+
+-   This assumes you have preloaded all the dependent functions above. So it is best to run all code up til that function. Then run it individually if you wish to watch the console and a viewer while scraping.
+
+-   This will loop through every airport code and return all of the html pages after RSelenium is applied to uptake the dynamic search bar.
+
+This function loops through every single airport code retrieved by the `Create airport code search table.Rmd` file. The process loops through all of the IATA codes in order, and returns the html file for each airport.
+
+3.  *Optional*: Save all files as a .csv
+
+**Expected time to run:** To loop through all airports can take a few hours. With 48 airport codes and on average a couple of minutes per run, it can be anywhere from 1 hour to half a day.
 
 ## 3. Explanation of the script
 
@@ -109,7 +134,13 @@ This scraper produces a clean live dataset of the current status of any Spanish 
 
 1.  Check the current airport status For example; *what's happening at Valencia airport right now, are the flights on time? how many flights are there?*
 
--   To access some pre-prepared functions to apply to the output datasets, you can go to the `Sample functions to summarise and plot` .Rmd file. To run, update the airport_data \<- read_csv() function to the location of your dataset, then run the program.
+    <div>
+
+    To access some pre-prepared functions to apply to the output datasets, you can go to the `Sample functions to summarise and plot` .Rmd file. To run, update the airport_data \<- read_csv() function to the location of your dataset, then run the program.
+
+    </div>
+
+<!-- -->
 
 2.  Build your own database to understand trends between and at airports. For example:
 
