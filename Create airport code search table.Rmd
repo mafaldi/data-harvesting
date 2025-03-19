@@ -225,6 +225,8 @@ We now have a full searchable table of airport codes that exactly matches the AE
 
 ```{r}
 full_airport_names
+
+airport_codes <- full_airport_names$IATA_code
 ```
 
 Write this as a CSV, so we can us to search. 

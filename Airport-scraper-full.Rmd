@@ -27,7 +27,7 @@ While you can search with names of cities, some cities have multiple airports, s
 
 To input your airport code, update the airport_code below as a character string E.g. `airport_code <- "MAD"` would be used for Madrid Adolfo-Suarez Airport. We use "MAD" as the default search since we live here and are most interested.
 
-```{r}
+```{r, eval=F}
 airport_code <- ""
 
 #create default search as MAD - Madrid, if no airport is selected above 
@@ -64,7 +64,7 @@ docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_
 
 Connection code:
 
-```{r}
+```{r, eval=F}
 remDr <- remoteDriver(
   remoteServerAddr = "localhost",
   port = 4445L,
@@ -89,7 +89,7 @@ library(httr)
 ```
 
 First, a quick check that the airport code is valid:
-```{r}
+```{r, eval=F}
 airport_code_list <- read.csv("Airport_code_search_table.csv") |> 
   select(IATA_code) |> pull()
 
@@ -111,7 +111,7 @@ if (airport_code %in% airport_code_list) {
 
 #### Launch AENA flight info page. 
 
-```{r}
+```{r, eval=F}
 remDr$navigate("https://www.aena.es/en/flight-info.html")
 ```
 
@@ -119,7 +119,7 @@ remDr$navigate("https://www.aena.es/en/flight-info.html")
 
 ...well, we have selected reject cookies. 
 
-```{r}
+```{r, eval=F}
 # select path and click
 
 remDr$findElement(using = "xpath", "//div[@id = 'modal_footer']//button[@class='ecix-bold ecix-font-1-2em elix-accordion-btn-light elix-deny-all-btn']")$clickElement()
@@ -130,7 +130,7 @@ remDr$findElement(using = "xpath", "//div[@id = 'modal_footer']//button[@class='
 
 The default is to search in the arrivals page. We want to search airport by departures.
 
-```{r}
+```{r, eval=F}
 # navigate and click change search button
 remDr$findElement(using = "xpath", 
                   value = "//nav[@class='filtrovuelo in-page bg-primary']//div[@class='iconos']")$clickElement()
@@ -141,7 +141,7 @@ remDr$findElement(using = "xpath",
 
 This just selects the box and allows us to input text to search:  
 
-```{r}
+```{r, eval=F}
 # identify the departures box
 departures_box_select <- remDr$findElement(using = "xpath", 
                                            value = "//nav[@class='filtrovuelo in-page bg-primary']//input[@id='Departuresin the Aena network:']")
@@ -156,7 +156,7 @@ departures_box_select$getElementAttribute("value")
 
 To set airport of interest then choose from our dropdown menu. Airport code is used because it gives the most accurate response. 
 
-```{r}
+```{r, eval=F}
 
 # send the airport code text to the departures box: 
 #first, clear the box from any exisitng text (sometimes cookies retain names)
@@ -170,7 +170,7 @@ The auto dropdown now appears with airports based on the search term.
 
 This step is just for those using a VNC viewer going step by step. You should see the dropdown values highlighted. 
 
-```{r}
+```{r, eval=F}
 # testing step ->  highlight the autofill to see it's being used: 
 remDr$findElement(using = "xpath",
                   value = "//div[@class='input aeropuertoAena autocompletable']//ul[@class='autoCompletable visible']")$highlightElement()
@@ -180,7 +180,7 @@ Select the dropdown option
 
 This selects automatic based on the airport code. I have created this dynamically because sometimes multiple airports can appear when you search just the 3 letter airport code. Using the airport code only will ensure we click the exact airport we want. 
 
-```{r}
+```{r, eval=F}
 # Find the node from the dropdown with our airport code, create dynamic xml link using sprintf()
 airport_input <- sprintf("//span[. = '%s']", airport_code)
 
@@ -198,7 +198,7 @@ The timer defaults to around 2 hours before the current time on AENA. We read th
 
 First, we click the time box to enable the dropdown dynamic start time and end time information. 
 
-```{r}
+```{r, eval=F}
 
 select_timebox <- remDr$findElement(using = "xpath", 
                   value = "//nav[@class='filtrovuelo in-page bg-primary']//section[@id='horario']")
@@ -212,7 +212,7 @@ select_timebox$clickElement()
 
 Now check we extract our start hour and start minute of the search. These are used to define our end values. 
 
-```{r}
+```{r, eval=F}
 # extract the time from the dropdown
 start_hr <- remDr$findElement(using = "xpath",
                   value = "//article[@class='custom-horas']//div[@class='desde hour_unit']//div[@class='valor hora']")
@@ -233,7 +233,7 @@ Now we determine what our end time will be, 12 hours in advance.
 
 This will need to be a loop if the hour of the day is after 19 (as it will enter the next day) and then we will need to code the date selection variable too. As the inputs are characters. We calculate as numeric to determine end time.
 
-```{r}
+```{r, eval=F}
 # create 12 hour ID to limit our search
 end_hr_input <- case_when(start_hr<12 ~ start_hr+12, # for next 12 hrs if morning
                                        start_hr>12 ~ start_hr-12, # if afternoon, end will be morning
@@ -248,7 +248,7 @@ paste0("Our end time will be ", end_hr_input, ":", end_min_input, " (24 clock us
 Input the end times to the drop down for the "to" column
 The end unit uses the same xml but has "hasta" instead of "desde" in the a higher level node. We extract these nodes here:
 
-```{r}
+```{r, eval=F}
 # select the end time options
 # extract the time from the dropdown
 end_hr <- remDr$findElement(using = "xpath",
@@ -271,7 +271,7 @@ Input the end hour time
 - search for the correct time value dynamically in the dropdown
 - click that exact node we find. 
 
-```{r}
+```{r, eval=F}
 #select the hour button to launch hours dropdown
 end_hr$clickElement()
 
@@ -292,7 +292,7 @@ Then dynamically select the minute slot:
 
 This follows the same process as the end hour above. 
 
-```{r}
+```{r, eval=F}
 #select the dropdown
 end_min$clickElement()
 
@@ -312,7 +312,7 @@ element_min$clickElement()
 
 Now click the ok button to hide the time dropdown.
 
-```{r}
+```{r, eval=F}
 select_ok <- remDr$findElement(using = "xpath",
                   value= "//article[@class='custom-horas']//div[@class='botones']/button[@class='btn button-round-primary']")
 
@@ -329,7 +329,7 @@ b) it is after midday, the 12 hour search will end the following day. So the cal
 
 First, we set our starting dates. This tracker is for current status, so it will always be today
 
-```{r}
+```{r, eval=F}
 select_date_box <- remDr$findElement(using = "xpath",
                         value = "//section[@id='fechas']//div[@class='input']//input[@id='fecha']")
 select_date_box$highlightElement()
@@ -342,7 +342,7 @@ Manual coding then will function:
 a) base case: if day is non-last of month and it is before midday. Select the same day.
 b) afternoon run: the end calendar day will be sometime the following morning and we need to factor this in.
 
-```{r}
+```{r, eval=F}
 # set our date value for today
 date_today <- Sys.Date() # in format yyyy-mm-dd
 day_of_month <- as.numeric(day(date_today))
@@ -370,7 +370,7 @@ Select either today or tomorrow based on the time of day. The default start date
 
 The calendar popout closes automatically after a click so we do not manually close. 
 
-```{r}
+```{r, eval=F}
 
 if (start_hr < 12) {
   cal_today_date$clickElement()
@@ -387,7 +387,7 @@ LAST DAY OF THE MONTH: If it is the last day of the month and after midday (so t
 
 This will also update the pages total number of flights upcoming. 
 
-```{r}
+```{r, eval=F}
 search_button <- remDr$findElement(using = "xpath",
                         value = "//div[@class=' container'] //section[@id='boton']/button[@value='Search']")
 
@@ -400,7 +400,7 @@ search_button$clickElement()
 Read how many flights are upcoming:
 Sometimes no flights exist so we need to return an error accordingly or skip.
 
-```{r}
+```{r, eval=F}
 
 check_flights_exist <- function(remDr) {
   # First search: Number of flights
@@ -451,7 +451,7 @@ If there are 95 flights, we would click 4 times. We start with 20, then search 4
 
 If there are 1555 flights, we would need to click 77 times. We add a sleep in between to avoid being banned and overloading the website. 
 
-```{r}
+```{r, eval=F}
 num_clicks <- ceiling((number_flights_searched-20)/ 20)
 paste("We will require",num_clicks,"clicks. This will take about 1 second per click")
 
@@ -459,7 +459,7 @@ paste("We will require",num_clicks,"clicks. This will take about 1 second per cl
 
 We create a function to through the "see more" function to expand and view all flights. Adding a sleep to not overload the website does extend the wait for larger airports. It is generally under 2 minutes run time though. 
 
-```{r}
+```{r, eval=F}
 multi_click_viewmore <- function(remDr) {
   while (TRUE) { # Loop indefinitely until can't find the "see more" button
     tryCatch({
@@ -483,13 +483,13 @@ multi_click_viewmore <- function(remDr) {
 
 Now we run this click more to expand our page to view all flights
 
-```{r}
+```{r, eval=F}
 multi_click_viewmore(remDr = remDr)
 ```
 
 #### Now we extract our page html file for analysis.
 
-```{r}
+```{r, eval=F}
 # 1. Get the page source (updated HTML)
 aena_page_source <- remDr$getPageSource()[[1]]
 
@@ -508,7 +508,7 @@ Hence, having done tested of the above for an individual airport, we can create 
 - Expand flights list 
 - Extract and save HTML for each Airport on the list 
 
-We will do the functions below. While they have no explanations, as we have gone over the idea of the code above, they do include comments to remember what each command does. 
+We will do the functions below. While they have no explanations, as we have gone over the idea of the code above, they do include comments to remember what each command does. Also, some commands might be slightly changed so that they might be used for different Airports. For example, some Airports have no flight information, so in order to deal with this the functions have extra commands. 
 
 ## Navigate to correct page and search for flights 
 
@@ -545,8 +545,6 @@ search_flights_aena <- function(airport_code) {
   
 }
 
-search_flights_aena(MAD)
-
 ```
 
 ## Select settings for time, date, Airport and search for flights 
@@ -570,7 +568,7 @@ set_time_and_date <- function() {
       using = "xpath",
       "//article[@class='custom-horas']//div[@class='desde hour_unit']//div[@class='valor minuto']")$getElementText())
 
-  end_hr_input <- ifelse(start_hr < 12, start_hr + 12, start_hr - 12)
+  end_hr_input <- ifelse(start_hr < 18, start_hr + 6, start_hr - 18)
   end_min_input <- start_min
 
   # select end hour
@@ -596,22 +594,70 @@ set_time_and_date <- function() {
     using = "xpath",
     "//article[@class='custom-horas']//div[@class='botones']/button[@class='btn button-round-primary']")$clickElement()
   Sys.sleep(2)
+  
+  # select calendar
+  select_date_box <- remDr$findElement(
+    using = "xpath",
+    value = "//section[@id='fechas']//div[@class='input']//input[@id='fecha']")
+  select_date_box$highlightElement()
+  select_date_box$clickElement()
 
-  # Adjust date if necessary
+  # adjust date if necessary
   date_today <- Sys.Date()
   day_of_month <- as.numeric(format(date_today, "%d"))
 
   xpath_date <- sprintf("//div[contains(@class, 'react-datepicker__day') and text()='%d']", day_of_month)
-  if (start_hr >= 12) {
+  if (start_hr >= 18) {
     xpath_date <- sprintf("//div[contains(@class, 'react-datepicker__day') and text()='%d']", day_of_month + 1)
   }
 
   remDr$findElement(
     using = "xpath", value = xpath_date)$clickElement()
-  Sys.sleep(2)
+  Sys.sleep(2) 
+  
 }
 
 ```
+
+## Checking if flights exist
+
+```{r}
+check_flights_exist <- function(remDr) {
+  
+  # try to find the flight count element
+  tryCatch({
+    flight_count_element <- remDr$findElement(
+      using = "xpath",
+      value = "//section[@id='infovuelos-info']//p[@class='h5 ligero']"
+    )
+    message("✅ Flights found. Continuing...")
+    
+    return(TRUE) # flights exist => continue scraping
+    
+  }, error = function(e) {
+    
+    # check if the "no flights" message appears
+    tryCatch({
+      
+      error_message_element <- remDr$findElement(
+        using = "xpath",
+        value = "//p[@class='denso' and contains(text(), 'We cannot find any flights')]"
+      )
+      message("❌ No flights found. Skipping this airport.")
+      return(FALSE) # no flights => stop checking this airport
+      
+    }, error = function(e) {
+      
+      # If neither is found, re-throw the original error
+      message("⚠️ Unexpected error: ", e$message)
+      return(FALSE)  # Safe fallback -> skip airport
+    })
+  })
+}
+
+
+```
+
 
 ## Expand flights list 
 
@@ -620,46 +666,82 @@ Multiclick function of before:
 ```{r}
 multi_click_viewmore <- function(remDr) {
   
-  while (TRUE) { # Loop indefinitely until can't find the "see more" button
+  while (TRUE) { 
+    
+    # loop indefinitely until can't find the "see more" button
     
     tryCatch({
       
-      click_button <- remDr$findElement(using = "xpath", value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
+      # wait for the see more button for up to 5 seconds
+      button_exists <- tryCatch({
+        remDr$findElement(using = "xpath", 
+                          value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
+        
+        TRUE # button found
+        
+      }, error = function(e) {
+        
+        FALSE # button not found
+        
+      })
+
+      if (!button_exists) {
+        
+        message("Button not found. Stopping loop.")
+        return(invisible(NULL)) # exit the function
+        
+      }
+
+      # click see more button
+      click_button <- remDr$findElement(using = "xpath", 
+                                        value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
       click_button$clickElement()
-      Sys.sleep(1)
+      Sys.sleep(2) # allow page to load after clicking
+      
       # based on the error type, we stop the loop and return message.
       
     }, error = function(e) {
       
-      if (grepl("Unable to locate element", e$message)) {
-        
-        # element not found, stop the loop
-        message("Button not found. Stopping loop.")
-        return(invisible(NULL)) # exit the function
-        
-      } else {
-        
-        # other error
-        stop(e)
-      }
+      # if an unexpected error occurs return
+      
+      message("⚠️ Unexpected error: ", e$message)
+      return(invisible(NULL))
+      
     })
   }
 }
 ```
-
-
+TODO
 ```{r}
-expand_flights_list <- function() {
-  
-  # get total number of flights
-  search_details <- remDr$findElement(using = "xpath", 
-                                      "//section[@id='infovuelos-info']//p[@class='h5 ligero']")$getElementText()
-  num_flights <- as.numeric(substr(search_details, 1, 4))
+multi_click_viewmore <- function(remDr) {
+  while (TRUE) {
+    tryCatch({
+      # Wait for the "See More" button for up to 5 seconds
+      button_exists <- tryCatch({
+        remDr$findElement(using = "xpath", 
+                          value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
+        TRUE # Button found
+      }, error = function(e) {
+        FALSE # Button not found
+      })
 
-  print(paste("Total flights found:", num_flights))
+      if (!button_exists) {
+        message("🔹 No more 'See More' button. Stopping loop.")
+        return(invisible(NULL)) # Stop loop if button is missing
+      }
 
-  # clicking see more until no button is found
-  multi_click_viewmore(remDr)
+      # Click the "See More" button
+      click_button <- remDr$findElement(using = "xpath", 
+                                        value = "//section[@id='infovuelos-tabla']//p[@class='btnIconText btn-see-more']//span[@class='icon icon-Mas_T']")
+      click_button$clickElement()
+      Sys.sleep(2) # Allow page to load after clicking
+
+    }, error = function(e) {
+      # If an unexpected error occurs, return
+      message("⚠️ Unexpected error: ", e$message)
+      return(invisible(NULL))
+    })
+  }
 }
 
 ```
@@ -689,15 +771,22 @@ save_airport_html <- function(airport_code, folder_path = "flight_htmls") {
 
 ## FAST AND FUNCTION
 
-This is now the final function to run for all airport codes:
+This is now the final function to run for all airport codes. It is important to note that the function starts a new browser session for each Airport, so that the cookies can be selected again, and then closes the session after each Airport is done. 
 
 ```{r}
 scrape_all_airports <- function(airport_codes) {
+  
+  # store airport HTML files
+  airport_links <- list()
   
   # loop through each airport
   for (airport_code in airport_codes) {
     
     print(paste("Scraping flights for:", airport_code))
+    
+    # start a new browser session
+    remDr <<- remoteDriver(remoteServerAddr = "localhost", port = 4445L, browserName = "firefox")
+    remDr$open()
     
     # navigate & search
     search_flights_aena(airport_code)
@@ -705,14 +794,36 @@ scrape_all_airports <- function(airport_codes) {
     # adjust time & date
     set_time_and_date()
     
-    # expand flights list
-    expand_flights_list()
+    # check if flights exist
+    flights_exist <- check_flights_exist(remDr)
     
-    # save HTML
-    save_airport_html(airport_code)
+    # save HTML before closing even if no flights exist so THAT THE LIST MATCHES!!!
+    file_name <- save_airport_html(airport_code)
+    airport_links[[airport_code]] <- file_name
     
-    print(paste("Completed:", airport_code))
+    
+    # check if flights exist: if FALSE, skip airport
+    if (!check_flights_exist(remDr)) {
+      remDr$close()
+      next  # go to the next airport
+    }
+    
+    # click on see more button
+    multi_click_viewmore(remDr)
+    
+    # UPDATE HTML after expanding flights
+    file_name <- save_airport_html(airport_code)
+    airport_links[[airport_code]] <- file_name
+    
+    # close  browser after finishing with the airport
+    remDr$close()
+    
+    print(paste("✅ Completed:", airport_code))
+    
   }
+  
+  return(airport_links)
+  
 }
 ```
 
@@ -725,12 +836,35 @@ airport_links
 ```
 
 
+# List Airport codes and links
+
+Now we create a named list with airport codes as names and links as values. We will use this to loop the functions below, that get the actual flight information out of the HTMLs, for all flights. This happens in the section _LOOP for all individual Airports._
+
+```{r}
+airport_urls <- setNames(airport_links, airport_codes)
+
+airport_urls
+```
+
+
+TODO: 
+```{r, eval=F}
+# -------------------------------------------------------
+airport_urls <- list(
+  "MAD" = "Flight information _ Infovuelos _ Aena_MAD.html", 
+  "BCN" = "Flight information _ Infovuelos _ Aena_BCN.html")
+
+
+airport_urls <- list(
+  names_airport = links_airport)
+
+```
 
 
 
 # Nodes scraping
 
-This part focuses on the scraping of the html websites once they are loaded to our desired parameters. 
+Changing pace, this part now focuses on the scraping of the HTML websites once they are loaded to our desired parameters. 
 
 To find the table of information we are looking for, the scraping code is actually quite straight forward. We are looking to find the rows of the table, find each individual element and then open them to extract them. We can either do it with CSS or with XPath the following way (the code below is set to eval=F for automatisation purposes, to see the results it must be manually selected):  
 
@@ -940,31 +1074,14 @@ scrape_flights(aena_flight_information)
 
 ```
 
+
 # CSV 
 
-TODO: 
-```{r, eval=F}
-# -------------------------------------------------------
-airport_urls <- list(
-  "MAD" = "Flight information _ Infovuelos _ Aena.html", 
-  "BCN" = "Información sobre vuelos _ Infovuelos _ Aena_BCN.html")
+Now that we have our data extraction functions, the last step is to save all of this information into CSV's. First, we will save the information into individual CSV, and afterwards we combine that information into one single CSV.  
 
-names_airport <- 
-  
-links_airport <- 
+## Individual airports CSV function
 
-airport_urls <- list(
-  names_airport = links_airport)
-
-  "MAD" = "Flight information _ Infovuelos _ Aena.html", 
-  "BCN" = "Información sobre vuelos _ Infovuelos _ Aena_BCN.html")  
-  
-```
-
-
-## individual airports
-
-loop through multiple airport URLs + scrape the flight data + save each tibble as a CSV file with the airport name in the filename
+Here, we are going to use our `scrape_flights()` function to create `save_flights_data()`. We no flights are found it wil warn us and skip the CSV save. If there is data, it will create a folder to save the different CSVs. If there is no folder yet, it will create one. Then it creates a filepath with the Airport name, but only if it doesn't exist already. If it does exist already, it simply appends the data. 
 
 ```{r function CSV individual airports}
 tibble_flights <- list()
@@ -1018,12 +1135,19 @@ save_flights_data <- function(url, airport_name) {
 }
 ```
 
-```{r}
+If you have been following this tutorial step by step, you should be able to now run the code below for the Airport of Madrid: 
+
+```{r, eval=F}
 save_flights_data(aena_flight_information, "MAD")
 ```
 
 
-## LOOP for ALL INDIVIDUAL airports
+### LOOP for ALL INDIVIDUAL airports
+
+
+
+loop through multiple airport URLs + scrape the flight data + save each tibble as a CSV file with the airport name in the filename
+
 
 ```{r command CSV loop all individual airports}
 # loop through all airports and save data
