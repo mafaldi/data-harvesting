@@ -18,7 +18,7 @@ docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_
 ```
 
 
-# Which aiport?
+# Which airport?
 
 In the github repos, you will find a table that has been generated from a separate script (`create airport code search table`). This joins AENA and wikipedia data to allow search for specific airport codes that match to the AENA website. 
 
@@ -27,7 +27,7 @@ While you can search with names of cities, some cities have multiple airports, s
 To input your airport code, update the airport_code below as a character string E.g. `airport_code <- "MAD"` would be used for Madrid Adolfo-Suarez Airport. We use "MAD" as the default search since we live here and are most interested.
 
 ```{r}
-airport_code <- "EAS"
+airport_code <- ""
 
 #create default search as MAD - Madrid, if no airport is selected above 
 airport_code <- ifelse(airport_code == "", "MAD", airport_code)
@@ -482,7 +482,7 @@ multi_click_viewmore <- function(remDr) {
 
 Now we run this click more to expand our page to view all flights
 
-```{r, eval=FALSE}
+```{r}
 multi_click_viewmore(remDr = remDr)
 ```
 
