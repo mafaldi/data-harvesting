@@ -44,7 +44,7 @@ If you are unsure of the correct code, you can either:
 -   Run the **List of Airports** section below to view all
     available airports.
 
--    Refer to the `Create airport code search table.Rmd` document
+-   Refer to the `Create airport code search table.Rmd` document
     to generate the airport list manually.
 
 To specify your airport, update the `airport_code` variable as a
@@ -52,7 +52,7 @@ character string. For example, to select Madrid Adolfo-Suárez
 Airport, use:
 
 ```{r, eval=F}
-airport_code <- "MAD"
+airport_code <- ""
 ```
 
 If no code is entered, the default selection is Madrid (`MAD`),
@@ -65,7 +65,7 @@ airport_code <- ifelse(airport_code == "", "MAD", airport_code)
 To explore all available airports, continue below. If not,
 proceed to "Set your user-agent."
 
-## List of Airports 
+## List of Airports
 
 We are going to extract all the Airport and Heliport lists that
 are searchable in AENA by scraping it out of the AENA website
@@ -76,8 +76,6 @@ First, we set our url and write the HTML to check the structure.
 
 ```{r}
 url <- "https://www.aena.es/en/passengers/our-airports.html"
-url %>% 
-  html_structure
 
 ```
 
@@ -329,6 +327,11 @@ if (airport_code %in% airport_code_list) {
 ```
 
 # RSelenium scraping of AENA searchbar
+
+This section is all set to eval=FALSE. You can use it to run all
+of the scraping with Selenium by running each chunk step-by-step.
+All of this is set to not run because it grouped in functions
+under FUNctionastic that are then read by the scrapers.
 
 #### Launch AENA flight info page.
 
@@ -1092,17 +1095,18 @@ scrape_all_airports <- function(airport_codes) {
 Having loaded all our important functions, we can now run the
 main function with a list of Airports.
 
-We created the list of Airports in the section "List of Airports" at the top of the scraper. We can use it to: 
+We created the list of Airports in the section "List of Airports"
+at the top of the scraper. We can use it to:
 
 1.  Choose and scrape one individual Airport
-2.  Choose and scrape all Airports 
+2.  Choose and scrape all Airports
 
 ## Selenium scrape one Airport
 
 We can go ahead and try our code on one Airport! For this, select
 an Airport of the table below. We recommend taking a middle sized
 city, as Barcelona and Madrid might take well over an hour to
-load! And very small cities might have almost no flights. 
+load! And very small cities might have almost no flights.
 
 ```{r, eval=F}
 full_airport_names
