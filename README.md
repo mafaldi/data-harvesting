@@ -10,18 +10,21 @@ In the
 
 **Key documents in this repository:**
 
-| Document | Description |
-|------------------------------------|------------------------------------|
-| Airport-scraper-full.Rmd | The big one! All your questions will be answered here (... as long as your question is about the current status of Spanish Airport departures). |
-| Sample-plot-summary.Rmd | A short file you can apply to an output CSV file from the scraper to view the distribution of upcoming flights and get quick statistics on current airport status. |
++--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Document                 | Description                                                                                                                                                        |
++==========================+====================================================================================================================================================================+
+| Airport-scraper-full.Rmd | The big one! All your questions will be answered here (... as long as your question is about the current status of Spanish Airport departures).                    |
++--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Sample-plot-summary.Rmd  | A short file you can apply to an output CSV file from the scraper to view the distribution of upcoming flights and get quick statistics on current airport status. |
++--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-## 2. Instructions 
+## 2. Instructions
 
 There are three steps to this scraper. First, you will have to (i) set up your docker container, then you will have to make sure that (ii) all libraries are installed, and finally, you will (iii) run the scraper, for which there are two options:
 
-a) The first option, [Shortcut it]{.underline}, gives you the possibility to run the whole scraper from top to bottom.
+a)  The first option, **Shortcut it**, gives you the possibility to run the whole scraper from top to bottom.
 
-b) The second option, [Scraping script step by step]{.underline}, gives you a step by step guide on how the code scrapes the websites and stores the information. While the .Rmd script has a commentary and descriptions so that you can follow it like a tutorial, the step by step guide of this README is a handy summary of what will be happening. Furthermore, it gives you the option to try the code out either for one Airport, or to scrape all Airports.
+b)  The second option, **Scraping script step by step**, gives you a step by step guide on how the code scrapes the websites and stores the information. While the .Rmd script has a commentary and descriptions so that you can follow it like a tutorial, the step by step guide of this README is a handy summary of what will be happening. Furthermore, it gives you the option to try the code out either for one Airport, or to scrape all Airports.
 
 ### (i) Setting up the Docker container
 
@@ -29,7 +32,7 @@ There is two options, you can try to install Selenium, and pray that it works wi
 
 1.  If you do not have Docker Desktop, install the correct version for your system.
 
-2.  Once you have Docker, start it and run the **Docker command below** for the Selenium Firefox container in PowerShell (Windows) or Terminal (Apple). This will open a [standalone container that will enable us to access webpages through Selenium in R]{.underline}.
+2.  Once you have Docker, start it and run the **Docker command below** for the Selenium Firefox container in PowerShell (Windows) or Terminal (Apple). This will open a standalone container that will enable us to access webpages through Selenium in R.
 
     ```         
     docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
@@ -49,28 +52,6 @@ There is two options, you can try to install Selenium, and pray that it works wi
 ### (ii) Library requirements
 
 Make sure you have the following libraries installed and loaded:
-
-```{r, eval=F}
-# Selenium
-library(RSelenium)
-library(tidyverse)
-library(rvest)
-library(httr)
-
-# List of Airports
-library(xml2)
-library(janitor)
-library(readr)
-
-# Nodes
-library(httr2)
-library(dplyr)
-library(stringr)
-library(purrr)
-library(lubridate)
-```
-
-testtest
 
 ```         
 # Selenium
@@ -115,20 +96,18 @@ Assuming Docker and your packages are installed, you are now ready to run the sc
 
 **Disclaimer**: Once you are running the code, you will be able to see your progress in the console through messages we have integrated into our code. Now, sit back, relax and wait... for probably a **long time**:
 
-<div>
-
-⚠️❗**DEFAULT RUN SETTINGS**: If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process.
-
--   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.
--   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.
-
-Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.
-
-</div>
++---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ⚠️**DEFAULT RUN SETTINGS**: If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process. \| |
+|                                                                                                                                                                                                                                                                                 |
+| -   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.                                                                                                         |
+| -   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.                                                                                                               |
+|                                                                                                                                                                                                                                                                                 |
+| Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.                                                                                                                 |
++---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ------------------------------------------------------------------------
 
-### b) Scraping script step by step 
+### b) Scraping script step by step
 
 > This option is for you to explore the code and its intricacies.
 
@@ -150,9 +129,9 @@ In *FUNctionastic* you will find the following functions: `search_flights_aena()
 
 To scrape 1 Airport or all Airports in Spain, simply follow the respective subsection of *Selenium scraping* and our instructions below, i.e. **(i)** *Selenium scrape one Airport* or **(ii)** *Selenium scrape all Airports*.
 
-⚠️❗**In-scope flights**: scrape searches are set to return 6 hours of Airport flight data. AENA generally includes flights from the 2 hours before and 4 hours ahead (or thereabouts). We select this 6 hour scope as delays are rarely announced over 6 hours in advance.
+❗**In-scope flights**: scrape searches are set to return 6 hours of Airport flight data. AENA generally includes flights from the 2 hours before and 4 hours ahead (or thereabouts). We select this 6 hour scope as delays are rarely announced over 6 hours in advance.
 
-#### [(i) To scrape the HTML for one Spanish Airport]{.underline}
+### (i) To scrape the HTML for one Spanish Airport
 
 To scrape only one Spanish Airport you must choose a 3 digit AITA code of the Airport of your choice. The choices were already scraped, processes and loaded in *List of Airports* at the very beginning. Now, in the subsection ***Selenium scrape one Airport*** you can simply load the dataset `full_airport_names` and insert your desired Airport into the function `scrape_all_airports()` as per the instructions given in the subsection we are in.
 
@@ -167,26 +146,24 @@ To scrape only one Spanish Airport you must choose a 3 digit AITA code of the Ai
 
 **Airport cheat codes:** The IATA codes for the 3 busiest Airports in Spain are: MAD (Madrid), BCN (Barcelona) and PMI (Palma De Mallorca). Each had over 30 million passengers in 2023.
 
-#### [(ii) To scrape information for all Airports in Spain (default)]{.underline}
+### (ii) To scrape information for all Airports in Spain (default)
 
-To scrape all Airports' HTMLs proceed to the subsection ***Selenium scrape all Airports*** and [load the whole chunk]{.underline}. The function utilizes the Airport codes we retrieved in *List of Airports* to create a list, `airport_codes`. With this list we can call the commands to loop through every Airport IATA code in order. The profess will create a folder, `flight_htmls`, store inside it a HTML of each Airport website (after `RSelenium` is applied to uptake the dynamic search bar) and create a list with the HTML content of each file paired with the corresponding Airport code.
+To scrape all Airports' HTMLs proceed to the subsection ***Selenium scrape all Airports*** and load the whole chunk. The function utilizes the Airport codes we retrieved in *List of Airports* to create a list, `airport_codes`. With this list we can call the commands to loop through every Airport IATA code in order. The profess will create a folder, `flight_htmls`, store inside it a HTML of each Airport website (after `RSelenium` is applied to uptake the dynamic search bar) and create a list with the HTML content of each file paired with the corresponding Airport code.
 
 7.  🌟🌟**Tibble it** and **save the CSVs**: to extract the information of the HTMLs into a tibble and save it as a CSV file, run the entirety of the ***Nodes scraping*** section. Then, load the entire chunk of the `save_flights_data()` function in the section ***Individual Airports CSV***. Having done that, skip over to the subsection ***LOOP for all individual Airports CSVs*** and load the chunk.
-    -   ⚠️❗It is not possible to only extract the information into a tibble without creating a CSV!
+    -   ❗It is not possible to only extract the information into a tibble without creating a CSV!
 8.  🌟🌟🌟 **Crreate one aggregated dataset**: to create one dataset that contains all information of all datasets, head to the last section, ***One dataset***, and run the code in its entirety. It has the functions `combine_flights_data()`, which reads all the CSVs available and compiles their information into a single dataframe while inserting the source Airport, and `save_combined_flights()`, which build upon the previous function to save the new CSV.
 
-**Expected time to run:** To loop through all Airports can take a few hours. With 48 Airport codes and on average a couple of minutes per run, it can be anywhere from 1 hour to half a day.
+**Expected time to run:** With 48 Airport codes and on average a couple of minutes per run, it can be anywhere from 1 hour to half a day.
 
-<div>
-
-⚠️❗**DEFAULT RUN SETTINGS**: If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process.
-
--   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.
--   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.
-
-Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.
-
-</div>
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ⚠️ **DEFAULT RUN SETTINGS**: If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process.  |
+|                                                                                                                                                                                                                                                                                |
+| -   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.                                                                                                        |
+| -   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.                                                                                                              |
+|                                                                                                                                                                                                                                                                                |
+| Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.                                                                                                                |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ## 3. Explanation of the script
 
