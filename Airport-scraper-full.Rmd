@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 This package will scrape information on the current status of
 flights in Spanish Airports. It will use data from `aena.es` to
 scrape real time information on flights in the 2 hours prior and
-12 hours ahead. AENA has information on 48 Spanish Airports and
+6 hours ahead. AENA has information on 48 Spanish Airports and
 heliports. You can return the status of each individual Airport,
 or return the results for only the busiest Airports.
 
@@ -28,44 +28,74 @@ instructions:
 docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
 ```
 
-# Which Airport?
+# Set your user-agent
 
-To identify the correct airport code for scraping, we have
-generated a table that combines AENA and Wikipedia data. This
-table allows you to search for specific airport codes that match
-those used on the AENA website.
+(check your user agent
+[here](https://www.google.com/search?client=ubuntu&channel=fs&q=what%27s+my+user+agent&ie=utf-8&oe=utf-8))
 
-While you can search using city names, some cities have multiple
-airports, making the three-letter IATA code the most precise
-search option.
+We set this for ethical scraping, so that the page can recognise
+us as the ones downloading the data.
 
-If you are unsure of the correct code, you can either:
+```{r, eval=FALSE}
+# set_config(
+#   user_agent("Mozilla/5.0 ....)
+# )
+```
 
--   Run the **List of Airports** section below to view all
-    available airports.
+## Connect to Docker
 
--    Refer to the `Create airport code search table.Rmd` document
-    to generate the airport list manually.
+Ensure Docker is downloaded and running on your device.
 
-To specify your airport, update the `airport_code` variable as a
-character string. For example, to select Madrid Adolfo-Suárez
-Airport, use:
+-   Optional =\> Install a VNC Viewer to see the browser:
+    -   Connect to: localhost:5900
+    -   No password required
+
+Selenium container with visible Firefox:
+
+```         
+docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
+```
+
+Connection code:
 
 ```{r, eval=F}
-airport_code <- "MAD"
+remDr <- remoteDriver(
+  remoteServerAddr = "localhost",
+  port = 4445L,
+  browserName = "firefox"
+)
+
+remDr$open()
+Sys.sleep(3) # pause for Docker to setup and run
 ```
 
-If no code is entered, the default selection is Madrid (`MAD`),
-as this is our primary focus.
+We should now be connected to the remote Docker computer
+
+## Load packages
+
+Libraries
 
 ```{r}
-airport_code <- ifelse(airport_code == "", "MAD", airport_code)
+library(RSelenium)
+library(tidyverse)
+library(rvest)
+library(httr)
+
+# List of Airports
+library(xml2)
+library(janitor)
+library(readr)
+
+# Nodes
+library(httr2)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(lubridate)
+
 ```
 
-To explore all available airports, continue below. If not,
-proceed to "Set your user-agent."
-
-## List of Airports 
+## List of Airports
 
 We are going to extract all the Airport and Heliport lists that
 are searchable in AENA by scraping it out of the AENA website
@@ -76,8 +106,6 @@ First, we set our url and write the HTML to check the structure.
 
 ```{r}
 url <- "https://www.aena.es/en/passengers/our-airports.html"
-url %>% 
-  html_structure
 
 ```
 
@@ -243,77 +271,35 @@ full_airport_names
 
 ```
 
-# Set your user-agent
+# RSelenium scraping of AENA searchbar
 
-(check your user agent
-[here](https://www.google.com/search?client=ubuntu&channel=fs&q=what%27s+my+user+agent&ie=utf-8&oe=utf-8))
+This section is all set to eval=FALSE. You can use it to run all
+of the scraping with Selenium by running each chunk step-by-step.
+All of this is set to not run because it grouped in functions
+under FUNctionastic that are then read by the scrapers.
 
-We set this for ethical scraping, so that the page can recognise
-us as the ones downloading the data.
+#### Select an airport 
 
-```{r, eval=FALSE}
-# set_config(
-#   user_agent("Mozilla/5.0 ....)
-# )
-```
-
-## Connect to Docker
-
-Ensure Docker is downloaded and running on your device.
-
--   Optional =\> Install a VNC Viewer to see the browser:
-    -   Connect to: localhost:5900
-    -   No password required
-
-Selenium container with visible Firefox:
-
-```         
-docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
-```
-
-Connection code:
+To specify your airport, update the `airport_code` variable as a
+character string. We have Madrid Adolfo-Suárez Airport set as the
+default:
 
 ```{r, eval=F}
-remDr <- remoteDriver(
-  remoteServerAddr = "localhost",
-  port = 4445L,
-  browserName = "firefox"
-)
-
-remDr$open()
-Sys.sleep(3) # pause for Docker to setup and run
+airport_code <- ""
 ```
 
-We should now be connected to the remote Docker computer
+If no code is entered, the default selection is Madrid (`MAD`),
+as this is our primary focus.
 
-## Load packages
-
-Libraries
-
-```{r}
-library(RSelenium)
-library(tidyverse)
-library(rvest)
-library(httr)
-
-# List of Airports
-library(xml2)
-library(janitor)
-library(readr)
-
-# Nodes
-library(httr2)
-library(dplyr)
-library(stringr)
-library(purrr)
-library(lubridate)
-
+```{r, eval=F}
+airport_code <- ifelse(airport_code == "", "MAD", airport_code)
 ```
 
 First, a quick check that the Airport code is valid:
 
 ```{r, eval=F}
-airport_code_list <- read.csv("Airport_code_search_table.csv") |> 
+# requires running of List of airports first. 
+airport_code_list <- full_airport_names |> 
   select(IATA_code) |> pull()
 
 # if statement based on whether code exists
@@ -324,11 +310,7 @@ if (airport_code %in% airport_code_list) {
   # Airport code is not found, return an error message
   stop("Airport code not found. \nPlease consult our 'Airport_code_search_table.csv' and choose a new IATA code")
 }
-
-
 ```
-
-# RSelenium scraping of AENA searchbar
 
 #### Launch AENA flight info page.
 
@@ -374,7 +356,7 @@ departures_box_select$getElementAttribute("value")
 
 ```
 
-### Input the Airport code to search
+#### Input the Airport code to search
 
 To set Airport of interest then choose from our dropdown menu.
 Airport code is used because it gives the most accurate response.
@@ -421,10 +403,10 @@ autofill_drop$clickElement()
 At this stage -\> it should be a page that has filtered to your
 Airport selected
 
-#### Adjust time of search to next 12 hours
+#### Adjust time of search to next 6 hours
 
-The timer defaults to around 2 hours before the current time on
-AENA. We read this information dynamically and set the +12 hour
+The timer defaults to around 6 hours before the current time on
+AENA. We read this information dynamically and set the +6 hour
 timer based on the start time.
 
 First, we click the time box to enable the dropdown dynamic start
@@ -439,7 +421,7 @@ select_timebox$clickElement()
 
 ```
 
-### Impute start and end time of data collection
+#### Impute start and end time of data collection
 
 Now check we extract our start hour and start minute of the
 search. These are used to define our end values.
@@ -460,7 +442,7 @@ paste0("Our start time is ", start_hr, ":", start_min, " (24 clock used time). B
 
 ```
 
-Now we determine what our end time will be, 12 hours in advance.
+Now we determine what our end time will be, 6 hours in advance.
 
 This will need to be a loop if the hour of the day is after 19
 (as it will enter the next day) and then we will need to code the
@@ -468,10 +450,10 @@ date selection variable too. As the inputs are characters. We
 calculate as numeric to determine end time.
 
 ```{r, eval=F}
-# create 12 hour ID to limit our search
-end_hr_input <- case_when(start_hr<12 ~ start_hr+12, # for next 12 hrs if morning
-                                       start_hr>12 ~ start_hr-12, # if afternoon, end will be morning
-                                       TRUE ~ 0) # if start hr == 12, correct to 0 for midnight
+# create 6 hour ID to limit our search
+end_hr_input <- case_when(start_hr<18 ~ start_hr+6, # for next 6 hrs if same day
+                                       start_hr>18 ~ start_hr-18, # if afternoon, end will be morning
+                                       TRUE ~ 0) # if start hr == 18, correct to 0 for midnight
 end_min_input <- start_min # unchanged.
 
 # show our end time parameter
@@ -564,7 +546,7 @@ again.
 
 a)  if the scraper is called in the morning, it will end on the
     same day.
-b)  it is after midday, the 12 hour search will end the following
+b)  it is after 6pm, the 6 hour search will end the following
     day. So the calendar selection must adjust accordingly.
 
 First, we set our starting dates. This tracker is for current
@@ -616,7 +598,7 @@ not manually close.
 
 ```{r, eval=F}
 
-if (start_hr < 12) {
+if (start_hr < 18) {
   cal_today_date$clickElement()
 } else {
   cal_tomorrow_date$clickElement()
@@ -626,12 +608,12 @@ if (start_hr < 12) {
 Known error in the calendar search:
 
 LAST DAY OF THE MONTH: If it is the last day of the month and
-after midday (so the 12 hour flight search ends on the first day
-of the next calendar month), there may be an error. I have tried
-to select the dates dynamically, but the only full date input is
-in long format e.g. "Monday, 21st of August, 2018" and R could
-not match this effectively with lubridate. So it was more robust
-to search by dynamically inputting the day of the month value and
+after 6pm (so the 6 hour flight search ends on the first day of
+the next calendar month), there will be an error. I have tried to
+select the dates dynamically, but the only full date input is in
+long format e.g. "Monday, 21st of August, 2018" and R could not
+match this effectively with lubridate. So it was more robust to
+search by dynamically inputting the day of the month value and
 searching for that node.
 
 #### Press search to confirm our search options are input
@@ -1092,24 +1074,27 @@ scrape_all_airports <- function(airport_codes) {
 Having loaded all our important functions, we can now run the
 main function with a list of Airports.
 
-We created the list of Airports in the section "List of Airports" at the top of the scraper. We can use it to: 
+We created the list of Airports in the section "List of Airports"
+at the top of the scraper. We can use it to:
 
 1.  Choose and scrape one individual Airport
-2.  Choose and scrape all Airports 
+2.  Choose and scrape all Airports
 
 ## Selenium scrape one Airport
 
 We can go ahead and try our code on one Airport! For this, select
 an Airport of the table below. We recommend taking a middle sized
 city, as Barcelona and Madrid might take well over an hour to
-load! And very small cities might have almost no flights. 
+load! And very small cities might have almost no flights.
 
 ```{r, eval=F}
 full_airport_names
 ```
 
 Now, insert your desired city into the function below as the
-example indicates:
+example indicates. Note you have to enter the airport code twice.
+This chunk will then start scraping your desired airport flights
+automatically.
 
 ```{r, eval=F}
 # example: 
@@ -1117,7 +1102,7 @@ example indicates:
 one_flight_html_path <- scrape_all_airports("")$
   
 # reading the saved information 
-aena_flight_information <- read_html(mad_html_path)
+aena_flight_information <- read_html(one_flight_html_path)
 
 ```
 
