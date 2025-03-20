@@ -30,31 +30,220 @@ docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_
 
 # Which Airport?
 
-In the github repos, you will find a table that has been
-generated from a separate script
-(`create airport code search table`). This joins AENA and
-wikipedia data to allow search for specific airport codes that
-match to the AENA website.
+To identify the correct airport code for scraping, we have
+generated a table that combines AENA and Wikipedia data. This
+table allows you to search for specific airport codes that match
+those used on the AENA website.
 
-While you can search with names of cities, some cities have
-multiple Airports, so the 3 digit IATA code is the best search
-option.
+While you can search using city names, some cities have multiple
+airports, making the three-letter IATA code the most precise
+search option.
 
-Another option is to quickly skip to the section: List of Airports and run it. 
+If you are unsure of the correct code, you can either:
 
-To input your airport code, update the airport_code below as a
-character string E.g. `airport_code <- "MAD"` would be used for
-Madrid Adolfo-Suarez Airport. We use "MAD" as the default search
-since we live here and are most interested.
+-   Run the **List of Airports** section below to view all
+    available airports.
+
+-    Refer to the `Create airport code search table.Rmd` document
+    to generate the airport list manually.
+
+To specify your airport, update the `airport_code` variable as a
+character string. For example, to select Madrid Adolfo-Suárez
+Airport, use:
 
 ```{r, eval=F}
-airport_code <- ""
+airport_code <- "MAD"
+```
 
-#create default search as MAD - Madrid, if no airport is selected above 
+If no code is entered, the default selection is Madrid (`MAD`),
+as this is our primary focus.
+
+```{r}
 airport_code <- ifelse(airport_code == "", "MAD", airport_code)
 ```
 
-## Set your user-agent
+To explore all available airports, continue below. If not,
+proceed to "Set your user-agent."
+
+## List of Airports 
+
+We are going to extract all the Airport and Heliport lists that
+are searchable in AENA by scraping it out of the AENA website
+itself. Then we tidy the data, scrape and join information from
+Wikipedia to have city names and a more searchable product.
+
+First, we set our url and write the HTML to check the structure.
+
+```{r}
+url <- "https://www.aena.es/en/passengers/our-airports.html"
+url %>% 
+  html_structure
+
+```
+
+This page relies on javascript, but as we just want basic data,
+we can still extract from the base HTML file. It's just a list of
+dot point information.
+
+To extract all of the Airport names and codes we have to consider
+that all the names are in a table in an \<a\> node within a
+\<li\> node, within another group of \<li\> for each column of
+the tables:
+
+```{r}
+webpage_airport_names <- read_html(url)
+
+# <nav> element containing the airport list
+airport_nav <- webpage_airport_names %>%
+  xml_find_first("//nav[@class='menuAeropuertosHeader deeper header-text n1']")
+
+# extract the airport names from the <a> tags within the <li> elements
+airport_names <- airport_nav %>%
+  xml_find_all(".//li/a") %>%
+  xml_text()
+
+airport_names
+```
+
+Now we tidy the names into a tibble of name and Airport code. The
+Airport codes are always given as the last 5 digits in brackets.
+However, we can write the code dynamically by detecting the
+parenthesis. This will be defensive for if future Airport codes
+are placed before the name or Airport codes become
+longer/shorter.
+
+```{r}
+# create tibble extracting the name and code element
+airport_name_aena <- tibble(
+  names = str_trim(str_replace_all(airport_names, pattern = "\\(.+\\)", replacement = "")),
+  codes = str_extract_all(string = airport_names, pattern = "\\(.+\\)"),
+)
+
+# remove parenthesis from codes and any trailing white space
+airport_name_aena$codes = str_trim(str_remove_all(airport_name_aena$codes, "[\\(\\)]"))
+
+```
+
+Now we read the Wiki list of Airports to join on city names.
+First we take a look at the tables of the Wiki page and see that
+the Airports are split out into multiple tables to scrape:
+
+-   Mainland
+-   Balearic Islands
+-   Canaries
+-   Ceuta and Melilla
+-   Heliports
+
+```{r}
+url <- "https://en.wikipedia.org/wiki/List_of_airports_in_Spain"
+
+wiki_airports <- read_html(url)
+# browseURL(url)
+
+all_wiki_table <- wiki_airports |> 
+  html_table()
+# all_wiki_table
+
+# mainland has extra columns and a blank first row
+mainland <- all_wiki_table[[1]] |> 
+  clean_names() |> 
+  filter(community != "") |> 
+  select(location = location_served, icao, iata, airport_name)
+
+# balearics and others need col names elevated and cleaned
+balearic <- all_wiki_table[[2]] |> 
+  row_to_names(1) |> 
+  clean_names()
+
+# canaries has repeated cols, we remove those with no airport code
+canaries <- all_wiki_table[[3]] |> 
+  row_to_names(1) |> 
+  clean_names() |> 
+  filter(iata != "")
+
+# heliports are missing the aito code, may not join at all 
+heliports <- all_wiki_table[[4]] |> 
+  row_to_names(1) |> 
+  clean_names()
+
+ceut_mel <- all_wiki_table[[5]] |> 
+  row_to_names(1) |> 
+  clean_names()
+
+# we standardize the col names in heliports ceut_mel and manually input the ceut code since it is known and only has 2 rows
+names(heliports) <- names(mainland)
+heliports$iata <- c("GMZ", "")
+ceut_mel$iata <- c("JCU", "MLN")
+
+```
+
+We can proceed to join the Wiki information together and clean
+the Airport codes.
+
+```{r}
+airport_names_wiki <- bind_rows(
+  mainland,
+  balearic,
+  canaries,
+  heliports,
+  ceut_mel
+)
+
+# remove all the footnotes from the airport codes
+airport_names_wiki <- airport_names_wiki |> 
+  mutate(across(everything(), ~ str_replace_all(., "\\[.+\\]", "")))
+
+# impute final missing known values not on wiki:
+airport_names_wiki <- airport_names_wiki |> 
+  mutate(
+    iata = case_when(icao == "LEAG" ~ "AEI", #Algeciras 
+                     icao == "LECU" ~ "MCV", # Madrid Cuatro-Vientos
+                     icao == "LELL" ~ "QSA", #Sabadell
+                     icao == "LESB" ~ "SBO", #Son Bonet
+                     TRUE ~ iata
+                     )
+  )
+
+# str(airport_names_wiki)
+```
+
+The data is ready to be merged with our AENA Airport list of
+available codes.
+
+```{r}
+full_airport_names <- airport_name_aena |> 
+  left_join(airport_names_wiki, by = c("codes" = "iata"))
+
+## treat multiple rows: these are mostly to do with air bases and military aiports sharing the same airport code location => although their flights are not searchable => we remove them
+
+full_airport_names <- full_airport_names |> 
+  # salamanca is the exception so treat this first
+  mutate(airport_name = case_when(
+    airport_name == "Salamanca Airport (Matacan Air Base) " ~ "Salamanca Airport", 
+    airport_name == "Albacete Airport (Los Llanos Air Base) " ~ "Albacete Airport",
+    TRUE ~ airport_name)) |> 
+  # now remove the airbases/military and manually remove San Seb heliport
+  filter(!str_detect(airport_name, "Air Base|Military Airport"),
+         airport_name != "San Sebastián De La Gomera Heliport")
+
+# rename some columns and order alphabetially by city
+full_airport_names <- full_airport_names |> 
+  select(City = location,
+         IATA_code = codes,
+         Airport_name = airport_name) |> 
+  arrange(City)
+
+```
+
+Finally, we now have a full searchable table of Airport codes
+that exactly matches the AENA website:
+
+```{r}
+full_airport_names
+
+```
+
+# Set your user-agent
 
 (check your user agent
 [here](https://www.google.com/search?client=ubuntu&channel=fs&q=what%27s+my+user+agent&ie=utf-8&oe=utf-8))
@@ -72,14 +261,11 @@ us as the ones downloading the data.
 
 Ensure Docker is downloaded and running on your device.
 
-1️⃣ Docker command (image & ports) in PowerShell to start Selenium
-container
-
-Selenium container with visible Firefox:
-
 -   Optional =\> Install a VNC Viewer to see the browser:
     -   Connect to: localhost:5900
     -   No password required
+
+Selenium container with visible Firefox:
 
 ```         
 docker run -d -p 4445:4444 -p 5900:5900 --env VNC_NO_PASSWORD=1 --name selenium_firefox selenium/standalone-firefox-debug
@@ -114,6 +300,13 @@ library(httr)
 library(xml2)
 library(janitor)
 library(readr)
+
+# Nodes
+library(httr2)
+library(dplyr)
+library(stringr)
+library(purrr)
+library(lubridate)
 
 ```
 
@@ -894,187 +1087,29 @@ scrape_all_airports <- function(airport_codes) {
 
 ```
 
-# List of Airports
+# Selenium scaping
 
-Having loaded all our important functions, we can now run the main function with a list of Airports.
+Having loaded all our important functions, we can now run the
+main function with a list of Airports.
 
-In order to
+We created the list of Airports in the section "List of Airports" at the top of the scraper. We can use it to: 
 
-1.  Have the list to choose individual Airports to scrape from
-2.  Have the list to choose all Airports to scrape from
-
-we can do two things. Either we go to the document `Create airport code search table.Rmd`, run it and continue, or we follow the steps below. They are the same code as in that document. 
-
-We are going to extract all the Airport and Heliport lists that are searchable in AENA by scraping it out of the AENA website itself. Then we tidy the data, scrape and join information from Wikipedia to have city names and a more searchable product.  
-
-First, we set our url and write the HTML to check the structure. 
-
-```{r}
-url <- "https://www.aena.es/en/passengers/our-airports.html"
-url %>% 
-  html_structure
-
-```
-
-This page relies on javascript, but as we just want basic data, we can still extract from the base HTML file. It's just a list of dot point information.
-
-To extract all of the Airport names and codes we have to consider that all the names are in a table in an \<a\> node within a \<li\> node, within another group of \<li\> for each column of the tables:
-
-```{r}
-webpage_airport_names <- read_html(url)
-
-# <nav> element containing the airport list
-airport_nav <- webpage_airport_names %>%
-  xml_find_first("//nav[@class='menuAeropuertosHeader deeper header-text n1']")
-
-# extract the airport names from the <a> tags within the <li> elements
-airport_names <- airport_nav %>%
-  xml_find_all(".//li/a") %>%
-  xml_text()
-
-airport_names
-```
-
-Now we tidy the names into a tibble of name and Airport code. The Airport codes are always given as the last 5 digits in brackets. However, we can write the code dynamically by detecting the parenthesis. This will be defensive for if future Airport codes are placed before the name or Airport codes become longer/shorter. 
-
-```{r}
-# create tibble extracting the name and code element
-airport_name_aena <- tibble(
-  names = str_trim(str_replace_all(airport_names, pattern = "\\(.+\\)", replacement = "")),
-  codes = str_extract_all(string = airport_names, pattern = "\\(.+\\)"),
-)
-
-# remove parenthesis from codes and any trailing white space
-airport_name_aena$codes = str_trim(str_remove_all(airport_name_aena$codes, "[\\(\\)]"))
-
-```
-
-Now we read the Wiki list of Airports to join on city names. First we take a look at the tables of the Wiki page and see that the Airports are split out into multiple tables to scrape: 
-
-* Mainland 
-* Balearic Islands
-* Canaries
-* Ceuta and Melilla
-* Heliports
-
-
-```{r}
-url <- "https://en.wikipedia.org/wiki/List_of_airports_in_Spain"
-
-wiki_airports <- read_html(url)
-# browseURL(url)
-
-all_wiki_table <- wiki_airports |> 
-  html_table()
-# all_wiki_table
-
-# mainland has extra columns and a blank first row
-mainland <- all_wiki_table[[1]] |> 
-  clean_names() |> 
-  filter(community != "") |> 
-  select(location = location_served, icao, iata, airport_name)
-
-# balearics and others need col names elevated and cleaned
-balearic <- all_wiki_table[[2]] |> 
-  row_to_names(1) |> 
-  clean_names()
-
-# canaries has repeated cols, we remove those with no airport code
-canaries <- all_wiki_table[[3]] |> 
-  row_to_names(1) |> 
-  clean_names() |> 
-  filter(iata != "")
-
-# heliports are missing the aito code, may not join at all 
-heliports <- all_wiki_table[[4]] |> 
-  row_to_names(1) |> 
-  clean_names()
-
-ceut_mel <- all_wiki_table[[5]] |> 
-  row_to_names(1) |> 
-  clean_names()
-
-# we standardize the col names in heliports ceut_mel and manually input the ceut code since it is known and only has 2 rows
-names(heliports) <- names(mainland)
-heliports$iata <- c("GMZ", "")
-ceut_mel$iata <- c("JCU", "MLN")
-
-```
-
-We can proceed to join the Wiki information together and clean the Airport codes. 
-
-```{r}
-airport_names_wiki <- bind_rows(
-  mainland,
-  balearic,
-  canaries,
-  heliports,
-  ceut_mel
-)
-
-# remove all the footnotes from the airport codes
-airport_names_wiki <- airport_names_wiki |> 
-  mutate(across(everything(), ~ str_replace_all(., "\\[.+\\]", "")))
-
-# impute final missing known values not on wiki:
-airport_names_wiki <- airport_names_wiki |> 
-  mutate(
-    iata = case_when(icao == "LEAG" ~ "AEI", #Algeciras 
-                     icao == "LECU" ~ "MCV", # Madrid Cuatro-Vientos
-                     icao == "LELL" ~ "QSA", #Sabadell
-                     icao == "LESB" ~ "SBO", #Son Bonet
-                     TRUE ~ iata
-                     )
-  )
-
-# str(airport_names_wiki)
-```
-
-The data is ready to be merged with our AENA Airport list of available codes. 
-
-```{r}
-full_airport_names <- airport_name_aena |> 
-  left_join(airport_names_wiki, by = c("codes" = "iata"))
-
-## treat multiple rows: these are mostly to do with air bases and military aiports sharing the same airport code location => although their flights are not searchable => we remove them
-
-full_airport_names <- full_airport_names |> 
-  # salamanca is the exception so treat this first
-  mutate(airport_name = case_when(
-    airport_name == "Salamanca Airport (Matacan Air Base) " ~ "Salamanca Airport", 
-    airport_name == "Albacete Airport (Los Llanos Air Base) " ~ "Albacete Airport",
-    TRUE ~ airport_name)) |> 
-  # now remove the airbases/military and manually remove San Seb heliport
-  filter(!str_detect(airport_name, "Air Base|Military Airport"),
-         airport_name != "San Sebastián De La Gomera Heliport")
-
-# rename some columns and order alphabetially by city
-full_airport_names <- full_airport_names |> 
-  select(City = location,
-         IATA_code = codes,
-         Airport_name = airport_name) |> 
-  arrange(City)
-
-```
-
-Finally, we now have a full searchable table of Airport codes that exactly matches the AENA website:
-
-```{r}
-full_airport_names
-
-```
-
-:52
+1.  Choose and scrape one individual Airport
+2.  Choose and scrape all Airports 
 
 ## Selenium scrape one Airport
 
-We can go ahead and try our code on one Airport! For this, select an Airport of the table below. We recommend taking a middle sized city, as Barcelona and Madrid might take well over an hour to load!  
+We can go ahead and try our code on one Airport! For this, select
+an Airport of the table below. We recommend taking a middle sized
+city, as Barcelona and Madrid might take well over an hour to
+load! And very small cities might have almost no flights. 
 
 ```{r, eval=F}
 full_airport_names
 ```
 
-Now, insert your desired city into the function below as the example indicates:  
+Now, insert your desired city into the function below as the
+example indicates:
 
 ```{r, eval=F}
 # example: 
@@ -1086,11 +1121,22 @@ aena_flight_information <- read_html(mad_html_path)
 
 ```
 
-As output you should have now a new folder called "flight_htmls", in which your the HTML for your particular Airport will be located! `aena_flight_information` is to keep working with it later for if you are following this script like a tutorial. 
+As output you should have now a new folder called "flight_htmls",
+in which your the HTML for your particular Airport will be
+located! `aena_flight_information` is to keep working with it
+later for if you are following this script like a tutorial.
 
 ## Selenium scrape all Airports
 
-To get a major number of data to scrape and continue working on, we can now scrape all AENA Airports and save them in a vector of links. In preparation to scraping the actual flights information of all Airports out of their HTMLs, we will also create a list with the Airport codes as names and the links as values. For this its important to remmener that `scrape_all_airports()` saves HTMLs, and hence, if we were to make a list without transforming that information, we would simply get paths to the HTMLs. We need to `read_html()` each path and then save it into a list
+To get a major number of data to scrape and continue working on,
+we can now scrape all AENA Airports and save them in a vector of
+links. In preparation to scraping the actual flights information
+of all Airports out of their HTMLs, we will also create a list
+with the Airport codes as names and the links as values. For this
+its important to remmener that `scrape_all_airports()` saves
+HTMLs, and hence, if we were to make a list without transforming
+that information, we would simply get paths to the HTMLs. We need
+to `read_html()` each path and then save it into a list
 
 ```{r}
 # all airport codes
@@ -1104,7 +1150,6 @@ airport_urls <- setNames(lapply(airport_links, read_html), airport_codes)
 
 airport_urls
 ```
-
 
 # Nodes scraping
 
@@ -1381,7 +1426,9 @@ scrape_flights <- function(url) {
 
 ## Node scrape one Airport
 
-If you are following the tutorial step by step and actually reading this document, you can now test if the function works with the Airport HTML you had scraped earlier! 
+If you are following the tutorial step by step and actually
+reading this document, you can now test if the function works
+with the Airport HTML you had scraped earlier!
 
 ```{r, eval=F}
 scrape_flights(aena_flight_information)
@@ -1456,7 +1503,9 @@ save_flights_data <- function(url, airport_name) {
 }
 ```
 
-For an individidual Airport you should be able to now run the code below by inserting in the empty bunny ears the city code you chose to scrape the HTML from:
+For an individidual Airport you should be able to now run the
+code below by inserting in the empty bunny ears the city code you
+chose to scrape the HTML from:
 
 ```{r, eval=F}
 save_flights_data(aena_flight_information, "")
@@ -1464,7 +1513,9 @@ save_flights_data(aena_flight_information, "")
 
 ### LOOP for ALL INDIVIDUAL Airports
 
-Now we loop `save_flights_data()` for all individual Airports to scrape the flight data and save each tibble as a CSV file with the Airport name in the filename. 
+Now we loop `save_flights_data()` for all individual Airports to
+scrape the flight data and save each tibble as a CSV file with
+the Airport name in the filename.
 
 ```{r command CSV loop all individual airports}
 # loop through all airports and save data
@@ -1474,7 +1525,12 @@ walk2(airport_urls, names(airport_urls), save_flights_data)
 
 ## One dataset
 
-With our individual datasets for each Airport, we can now set out to create one mega dataset for all Airports. First we create one function that creates the mega tibble out of the saved CSV files, which is then used in the final function that saves that tibble as a CSV file. This is our final output, which you can now analyse, visualise, or whatever your flying heart desires! 
+With our individual datasets for each Airport, we can now set out
+to create one mega dataset for all Airports. First we create one
+function that creates the mega tibble out of the saved CSV files,
+which is then used in the final function that saves that tibble
+as a CSV file. This is our final output, which you can now
+analyse, visualise, or whatever your flying heart desires!
 
 ```{r function combine_flights_data & function CSV save_combined_flights}
 
