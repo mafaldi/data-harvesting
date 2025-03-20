@@ -93,14 +93,16 @@ Assuming Docker and your packages are installed, you are now ready to run the sc
 
 **Disclaimer**: Once you are running the code, you will be able to see your progress in the console through messages we have integrated into our code. Now, sit back, relax and wait... for probably a **long time**:
 
-+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ⚠️**DEFAULT RUN SETTINGS**: If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process. |
-|                                                                                                                                                                                                                                                                              |
-| -   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.                                                                                                      |
-| -   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.                                                                                                            |
-|                                                                                                                                                                                                                                                                              |
-| Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.                                                                                                              |
-+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ⚠️**DEFAULT RUN SETTINGS**                                                                                                                                                                                                                       |
++==================================================================================================================================================================================================================================================+
+| If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process. |
+|                                                                                                                                                                                                                                                  |
+| -   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.                                                                          |
+| -   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.                                                                                |
+|                                                                                                                                                                                                                                                  |
+| Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ------------------------------------------------------------------------
 
@@ -153,14 +155,16 @@ To scrape all Airports' HTMLs proceed to the subsection ***Selenium scrape all A
 
 **Expected time to run:** With 48 Airport codes and on average a couple of minutes per run, it can be anywhere from 1 hour to half a day.
 
-+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ⚠️**DEFAULT RUN SETTINGS**: If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process. |
-|                                                                                                                                                                                                                                                                              |
-| -   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.                                                                                                      |
-| -   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.                                                                                                            |
-|                                                                                                                                                                                                                                                                              |
-| Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.                                                                                                              |
-+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ⚠️**DEFAULT RUN SETTINGS**                                                                                                                                                                                                                       |
++==================================================================================================================================================================================================================================================+
+| If you run the `Airport_scraper_full.Rmd` in full, the default setting will be to loop through every single AENA Airport to scrape every single html, extract the tables and clean them, then save a .csv for each Airport and one full process. |
+|                                                                                                                                                                                                                                                  |
+| -   Some Airports like Madrid and Barcelona have many flights with multiple companies carrying them, so the number of flights in a short amount of time is exponential.                                                                          |
+| -   In addition, the code has integrated sleeper to both not to scrape too much at once and give the websites time to load. This adds its weight to the run time.                                                                                |
+|                                                                                                                                                                                                                                                  |
+| Depending on how many flights there are, at what point of the day you are scraping and how fast the system is running, this will take between 1 and half a day.                                                                                  |
++--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 ## 3. Explanation of the script
 
